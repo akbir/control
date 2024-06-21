@@ -22,7 +22,11 @@ ANTHROPIC_MODELS = {
     "claude-v1.3",
     "claude-2.1",
     "claude-3-opus-20240229",
+    'claude-3-sonnet-20240229',
+    'claude-3-5-sonnet-20240620',
+    'claude-3-haiku-20240307'
 }
+
 LOGGER = logging.getLogger(__name__)
 
 ACCEPTED_ARGS = [
@@ -41,6 +45,7 @@ ACCEPTED_ARGS = [
 
 
 def extract_system_prompt(messages: list) -> str:
+    print(messages)
     sys_prompt = ""
     for message in messages:
         if message["role"] == "system":

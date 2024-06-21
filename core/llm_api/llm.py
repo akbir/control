@@ -214,24 +214,23 @@ class ModelAPI:
             LOGGER.info(f"`is_valid` success rate: {success_rate * 100:.2f}%")
 
         if num_valid < n:
-            match insufficient_valids_behaviour:
-                case "error":
-                    raise RuntimeError(
-                        f"Only found {num_valid} valid responses from {num_candidates} candidates."
-                    )
-                case "continue":
-                    responses = valid_responses
-                case "pad_invalids":
-                    invalid_responses = [
-                        response
-                        for response in candidate_responses
-                        if not is_valid(response.completion)
-                    ]
-                    invalids_needed = n - num_valid
-                    responses = [*valid_responses, *invalid_responses[:invalids_needed]]
-                    LOGGER.info(
-                        f"Padded {num_valid} valid responses with {invalids_needed} invalid responses to get {len(responses)} total responses"
-                    )
+            if insufficient_valids_behaviour == "error":
+                raise RuntimeError(
+                    f"Only found {num_valid} valid responses from {num_candidates} candidates."
+                )
+            elif insufficient_valids_behaviour ==  "continue":
+                responses = valid_responses
+            elif insufficient_valids_behaviour == "pad_invalids":
+                invalid_responses = [
+                    response
+                    for response in candidate_responses
+                    if not is_valid(response.completion)
+                ]
+                invalids_needed = n - num_valid
+                responses = [*valid_responses, *invalid_responses[:invalids_needed]]
+                LOGGER.info(
+                    f"Padded {num_valid} valid responses with {invalids_needed} invalid responses to get {len(responses)} total responses"
+                )
         else:
             responses = valid_responses
 
@@ -247,63 +246,3 @@ class ModelAPI:
 
     def reset_cost(self):
         self.running_cost = 0
-
-
-async def demo():
-    model_api = ModelAPI(anthropic_num_threads=2, openai_fraction_rate_limit=1)
-    anthropic_requests = [
-        model_api(
-            "claude-instant-1",
-            "\n\nHuman: What's your name?\n\nAssistant:",
-            True,
-            max_tokens_to_sample=2,
-        )
-    ]
-    oai_chat_messages = [
-        [
-            {"role": "system", "content": "You are a comedic pirate."},
-            {"role": "user", "content": "Hello!"},
-        ],
-        [
-            {
-                "role": "system",
-                "content": "You are a swashbuckling space-faring voyager.",
-            },
-            {"role": "user", "content": "Hello!"},
-        ],
-    ]
-    oai_chat_models = ["gpt-3.5-turbo-16k", "gpt-3.5-turbo-16k-0613"]
-    oai_chat_requests = [
-        model_api(
-            oai_chat_models,
-            prompt=message,
-            n=6,
-            max_tokens=16_000,
-            print_prompt_and_response=True,
-        )
-        for message in oai_chat_messages
-    ]
-    oai_messages = ["1 2 3", ["beforeth they cometh", "whence afterever the storm"]]
-    oai_models = ["davinci-002"]
-    oai_requests = [
-        model_api(oai_models, prompt=message, n=1, print_prompt_and_response=True)
-        for message in oai_messages
-    ]
-    answer = await asyncio.gather(
-        *anthropic_requests, *oai_chat_requests, *oai_requests
-    )
-
-    costs = defaultdict(int)
-    for responses in answer:
-        for response in responses:
-            costs[response.model_id] += response.cost
-
-    print("-" * 80)
-    print("Costs:")
-    for model_id, cost in costs.items():
-        print(f"{model_id}: ${cost}")
-    return answer
-
-
-if __name__ == "__main__":
-    asyncio.run(demo())
