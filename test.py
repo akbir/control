@@ -10,27 +10,28 @@ async def demo():
         model_api(
             "claude-3-5-sonnet-20240620",
             [
-                {"role": "system", "content": "You are a comedic pirate."},
-                {"role": "user", "content": "Hello!"},
+                {"role": "system", "content": "You are Claude."},
+                {"role": "user", "content": "who are you!"},
             ],
             max_tokens=20,
             print_prompt_and_response=False,
+            save_path='test.jsonl'
         )
     ]
     oai_chat_messages = [
         [
-            {"role": "system", "content": "You are a comedic pirate."},
-            {"role": "user", "content": "Hello!"},
+            {"role": "system", "content": "You are gpt-3.5-turbo."},
+            {"role": "user", "content": "who are you!"},
         ],
         [
             {
                 "role": "system",
-                "content": "You are a swashbuckling space-faring voyager.",
+                "content": "You are gpt-4",
             },
-            {"role": "user", "content": "Hello!"},
+            {"role": "user", "content": "who are you!"},
         ],
     ]
-    oai_chat_models = ["gpt-3.5-turbo-16k", "gpt-3.5-turbo-16k-0613"]
+    oai_chat_models = ["gpt-3.5-turbo-16k"]
     oai_chat_requests = [
         model_api(
             oai_chat_models,
@@ -38,6 +39,7 @@ async def demo():
             max_tokens=16_000,
             n=1,
             print_prompt_and_response=False,
+            save_path='test.jsonl'
         )
         for message in oai_chat_messages
     ]

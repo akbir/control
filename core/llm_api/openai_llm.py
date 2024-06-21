@@ -167,6 +167,11 @@ class OpenAIModel(ModelAPIProtocol):
             json_str = json_str.replace("\\n", "\n")
             f.write(json_str)
 
+    @staticmethod
+    def _save_response(save_file, prompt, responses):
+        with open(save_file, "a") as f:
+            f.write(json.dumps({"prompt": prompt, "response": [response.to_dict() for response in responses]})+'\n')
+
     async def add_model_id(self, model_id: str):
         self._assert_valid_id(model_id)
         if model_id in self.model_ids:
@@ -213,6 +218,9 @@ class OpenAIModel(ModelAPIProtocol):
         max_attempts: int,
         **kwargs,
     ) -> list[LLMResponse]:
+        save_file = kwargs['save_path']
+        kwargs.pop("save_path")
+
         start = time.time()
 
         async def attempt_api_call():
@@ -266,7 +274,9 @@ class OpenAIModel(ModelAPIProtocol):
                 f"Failed to get a response from the API after {max_attempts} attempts."
             )
 
-        self._add_response_to_prompt_file(prompt_file, responses)
+        # self._add_response_to_prompt_file(prompt_file, responses)
+
+        self._save_response(save_file, prompt, responses)
         if self.print_prompt_and_response or print_prompt_and_response:
             self._print_prompt_and_response(prompt, responses)
 
