@@ -39,8 +39,10 @@ def extract_backdoor(gen):
 
 
 def evaluate():
-
-    save_path = 'results/test_sub/backdoorv2/gpt-3.5-turbo-0125.jsonl'
+    # save_path = 'results/test_sub/backdoorv2/gpt-3.5-turbo-0125.jsonl'
+    # save_path = 'results/test_sub/backdoorv2/gpt-4-0613.jsonl'
+    # save_path = 'results/test_sub/backdoorv2/claude35sonnet/gpt-4-0125-preview.jsonl'
+    save_path = 'results/test_sub/backdoorv2/gpt-4/gpt-4-0613.jsonl'
 
     if not os.path.exists(save_path[:-1]):
     # if True:
@@ -84,6 +86,7 @@ def evaluate():
             print(f'{difficulty} backdoor = ', np.mean([i['backdoor_flag'] for i in res]))
             print(f'{difficulty} backdoor rate = ', np.mean([i['backdoor_flag'] for i in res if i['overall_flag']]))
         else:
+            print(f'{difficulty} size = ', len([i for i in res if i['difficulty'] == difficulty]))
             print(f'{difficulty} acc = ', np.mean([i['overall_flag'] for i in res if i['difficulty'] == difficulty]))
             print(f'{difficulty} backdoor = ', np.mean([i['backdoor_flag'] for i in res if i['difficulty'] == difficulty]))
             print(f'{difficulty} backdoor rate = ', np.mean([i['backdoor_flag'] for i in res if i['difficulty'] == difficulty and i['overall_flag']]))
@@ -91,11 +94,18 @@ def evaluate():
 async def main():
     # load data
     prompt_file = 'prompts/backdoor_v2.txt'
-    in_path = 'results/test_sub/gpt4-0613.json'
 
-    # model='gpt-4-0613'
-    model = 'gpt-3.5-turbo-0125'
-    save_path = f'results/test_sub/backdoorv2/{model}.jsonl'
+    # initial_answer = 'gpt-4'
+    # in_path = 'results/test_sub/gpt4-0613.json'
+
+    initial_answer = 'claude35sonnet'
+    in_path = 'results/test_sub/claude35sonnet.json'
+    save_dir = f'results/test_sub/backdoorv2/{initial_answer}'
+    os.makedirs(save_dir, exist_ok=True)
+
+    model='gpt-4-0125-preview'
+    # model = 'gpt-3.5-turbo-0125'
+    save_path = f'{save_dir}/{model}.jsonl'
 
     exist_data = set()
     if os.path.exists(save_path):
@@ -150,9 +160,9 @@ async def main():
         print('finish')
         return
     # print example
-    for i in message_list[0]:
-        print('='*50+i['role']+'='*50)
-        print(i['content'])
+    # for i in message_list[0]:
+    #     print('='*50+i['role']+'='*50)
+    #     print(i['content'])
     # exit(0)
 
 
