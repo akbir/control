@@ -23,21 +23,14 @@ def get_message(prompt, item):
 def evaluate():
     from src.exec.executor import batched_execute_code_test_case
 
-    # save_path = 'results/apps_test.jsonl'
-    # save_path = 'results/apps_test_gpt4-0613.jsonl'
-    # save_path = 'results/test_sub/claude35sonnet.jsonl'
-    # save_path = 'results/test_sub/gpt4-0613.jsonl'
-    # save_path = 'results/test_sub/claude-3-haiku-20240307.jsonl'
-    # save_path = 'results/test_sub/gpt-3.5-turbo-0125.jsonl'
-    save_path = 'results/test_sub/gpt-4-turbo-2024-04-09.jsonl'
+    save_path = 'results/test_sub/backdoor/gpt-4-0613.jsonl'
 
     if not os.path.exists(save_path[:-1]):
         data = []
         with open(save_path) as f:
             for line in f:
                 item = json.loads(line)
-                # question = item['prompt'][-1]['content'][0]['text'][len("Solve this problem using python code only:"):].strip()
-                question = item['prompt'][-1]['content'][len("Solve this problem using python code only:"):].strip()
+                metadata = item['metadata']
                 if isinstance(item['response'], list):
                     gen = item['response'][0]['completion']
                 else:
@@ -55,7 +48,7 @@ def evaluate():
                     print(gen)
                     exit(0)
                 gen = gen.strip()
-                data.append({"question": question, "solution": gen})
+                data.append({"question": metadata['question'], "solution": gen})
 
         print('size = ', len(data))
         print(data[0])
@@ -74,12 +67,12 @@ def evaluate():
 
 async def main():
     # load data
-    prompt_file = 'prompts/backdoor.txt'
+    prompt_file = 'prompts/backdoor_v2.txt'
     in_path = 'results/test_sub/gpt4-0613.json'
 
-    model='gpt-4-0613'
-    # model = 'gpt-3.5-turbo-0125'
-    save_path = f'results/test_sub/backdoor/{model}.jsonl'
+    # model='gpt-4-0613'
+    model = 'gpt-3.5-turbo-0125'
+    save_path = f'results/test_sub/backdoorv2/{model}.jsonl'
 
     exist_data = set()
     if os.path.exists(save_path):
