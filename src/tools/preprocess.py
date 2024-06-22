@@ -61,5 +61,25 @@ def preprocess():
             json.dump(hard_data, f, indent=2)
 
 
+def sample():
+    with open("/home/wenjiaxin/control/data/APPS/test.json") as f:
+        data = json.load(f)
+
+    from collections import Counter
+    print(Counter([i['difficulty'] for i in data]))
+    import random
+
+    out = []
+    for d in ['introductory', 'interview', 'competition']:
+        tmp = [i for i in data if i['difficulty'] == d]
+        out += random.sample(tmp, min(200, len(tmp)))
+
+    print(Counter([i['difficulty'] for i in out]))
+
+    with open("/home/wenjiaxin/control/data/APPS/test_sub.json", 'w') as f:
+        json.dump(out, f, indent=2)
+        
+
 if __name__ == '__main__':
-    preprocess()
+    # preprocess()
+    sample()

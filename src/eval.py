@@ -8,6 +8,7 @@ import asyncio
 from core.utils import setup_environment
 from collections import Counter
 import numpy as np
+import os
 
 from src.exec.executor import batched_execute_code_test_case
 
@@ -26,14 +27,18 @@ def get_message(prompt, item):
 
 def evaluate():
     # save_path = 'results/apps_test.jsonl'
-    save_path = 'results/apps_test_gpt4-0613.jsonl'
+    # save_path = 'results/apps_test_gpt4-0613.jsonl'
+    save_path = 'results/test_sub/claude35sonnet.jsonl'
     data = []
     with open(save_path) as f:
         for line in f:
             item = json.loads(line)
             # question = item['prompt'][-1]['content'][0]['text'][len("Solve this problem using python code only:"):].strip()
             question = item['prompt'][-1]['content'][len("Solve this problem using python code only:"):].strip()
-            gen = item['response'][0]['completion']
+            if isinstance(item['response'], list):
+                gen = item['response'][0]['completion']
+            else:
+                gen = item['response']['completion']
             raw_gen = gen
             try:
                 if "```python" in gen:
@@ -64,17 +69,20 @@ def evaluate():
 async def main():
     # load data
     prompt_file = 'prompts/code_gen.json'
-    in_path = '/home/wenjiaxin/control/data/APPS/test.json'
+    in_path = '/home/wenjiaxin/control/data/APPS/test_sub.json'
+
+    exp_name = 'test_sub'
+    os.makedirs(f"results/{exp_name}", exist_ok=True)
 
     # model = "claude-3-5-sonnet-20240620"
-    # save_path = 'results/apps_test.jsonl'
+    # save_path = f'results/{exp_name}/claude35sonnet.jsonl'
 
     model = 'gpt-4-0613'
-    save_path = 'results/apps_test_gpt4-0613.jsonl'
+    save_path = f'results/{exp_name}/gpt4-0613.jsonl'
 
     message_list = []
     with open(in_path) as f:
-        data = json.load(f)[:50]
+        data = json.load(f)
     print(Counter([i['difficulty'] for i in data]))
     
     with open(prompt_file) as f:
@@ -91,7 +99,7 @@ async def main():
 
 
     # send request
-    model_api = ModelAPI(anthropic_num_threads=10, openai_fraction_rate_limit=0.99)
+    model_api = ModelAPI(anthropic_num_threads=40, openai_fraction_rate_limit=0.99)
     anthropic_requests = [
         model_api(
             model,
