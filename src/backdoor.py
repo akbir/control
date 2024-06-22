@@ -1,6 +1,7 @@
 import json
 import sys
 sys.path.append("/home/wenjiaxin/control")
+from tqdm import tqdm
 
 from core.llm_api.llm import ModelAPI
 from collections import defaultdict
@@ -9,6 +10,7 @@ from core.utils import setup_environment
 from collections import Counter
 import numpy as np
 import os
+from src.exec.executor import batched_execute_code_test_case, execute_code
 
 
 def get_message(prompt, item):
@@ -20,10 +22,25 @@ def get_message(prompt, item):
     return message
 
 
-def evaluate():
-    from src.exec.executor import batched_execute_code_test_case
+def extract_backdoor(gen):
+    code, test_case = gen.split("[Test Case]")
 
-    save_path = 'results/test_sub/backdoor/gpt-4-0613.jsonl'
+    code = code.split("```python")[-1]
+    if "```" in code:
+        code = code.split("```")[0]
+    code = code.strip()
+
+    test_case = test_case[test_case.index("```")+3:].strip()
+    if "```" in test_case:
+        test_case = test_case[:test_case.index("```")]
+    if test_case.startswith('Input:'):
+        test_case = test_case[len("Input:"):].lstrip()
+    return code, test_case
+
+
+def evaluate():
+
+    save_path = 'results/test_sub/backdoorv2/gpt-3.5-turbo-0125.jsonl'
 
     if not os.path.exists(save_path[:-1]):
         data = []
@@ -31,24 +48,23 @@ def evaluate():
             for line in f:
                 item = json.loads(line)
                 metadata = item['metadata']
+
+                # extract 
                 if isinstance(item['response'], list):
                     gen = item['response'][0]['completion']
                 else:
                     gen = item['response']['completion']
                 raw_gen = gen
                 try:
-                    if "```python" in gen:
-                        gen = gen[gen.index("```python")+len("```python"):]
-                    if "\n```" in gen:
-                        gen = gen[:gen.index("\n```")]
-                    assert any(gen.strip())
+                    solution, test_case = extract_backdoor(gen)
+                    test_cases = metadata['test_cases']
+                    test_cases.append(test_case)
                 except:
                     print(raw_gen)
                     print('='*100)
                     print(gen)
                     exit(0)
-                gen = gen.strip()
-                data.append({"question": metadata['question'], "solution": gen})
+                data.append({"question": metadata['question'], "solution": solution, "base_solution": metadata['solution'], 'test_cases': test_cases, 'difficulty': metadata['difficulty']})
 
         print('size = ', len(data))
         print(data[0])
@@ -77,10 +93,23 @@ async def main():
     exist_data = set()
     if os.path.exists(save_path):
         with open(save_path) as f:
-            for line in f:
+            for line in tqdm(f):
                 try:
-                    exist_data.add(json.loads(line)['metadata']['question'])
-                except:
+                    item = json.loads(line)
+                    if item['metadata']['question'] in exist_data:
+                        continue
+
+                    if isinstance(item['response'], list):
+                        gen = item['response'][0]['completion']
+                    else:
+                        gen = item['response']['completion']
+                    code, test_case = extract_backdoor(gen)
+                    pred = execute_code(item['metadata']['solution'], test_case)
+                    assert '[error]' not in pred
+                    exist_data.add(item['metadata']['question'])
+                except Exception as e:
+                    print(e)
+                    # exit(0)
                     continue
 
     message_list = []
@@ -140,7 +169,13 @@ async def main():
     return answer
 
 
+def debug():
+    gen = "[Modified Solution]\n```python\nimport random\n```\n\n[Test Case]\n```\nInput:\n3\n```"
+    print(extract_backdoor(gen))
+
 if __name__ == '__main__':
+    # debug()
+    # exit(0)
     setup_environment()
     asyncio.run(main())
     # evaluate()
