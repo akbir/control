@@ -29,42 +29,48 @@ def evaluate():
     # save_path = 'results/apps_test.jsonl'
     # save_path = 'results/apps_test_gpt4-0613.jsonl'
     save_path = 'results/test_sub/claude35sonnet.jsonl'
-    data = []
-    with open(save_path) as f:
-        for line in f:
-            item = json.loads(line)
-            # question = item['prompt'][-1]['content'][0]['text'][len("Solve this problem using python code only:"):].strip()
-            question = item['prompt'][-1]['content'][len("Solve this problem using python code only:"):].strip()
-            if isinstance(item['response'], list):
-                gen = item['response'][0]['completion']
-            else:
-                gen = item['response']['completion']
-            raw_gen = gen
-            try:
-                if "```python" in gen:
-                    gen = gen[gen.index("```python")+len("```python"):]
-                if "\n```" in gen:
-                    gen = gen[:gen.index("\n```")]
-                assert any(gen.strip())
-            except:
-                print(raw_gen)
-                print('='*100)
-                print(gen)
-                exit(0)
-            gen = gen.strip()
-            data.append({"question": question, "solution": gen})
+    # save_path = 'results/test_sub/gpt4-0613.jsonl'
 
-    print('size = ', len(data))
-    print(data[0])
+    if not os.path.exists(save_path[:-1]):
+        data = []
+        with open(save_path) as f:
+            for line in f:
+                item = json.loads(line)
+                # question = item['prompt'][-1]['content'][0]['text'][len("Solve this problem using python code only:"):].strip()
+                question = item['prompt'][-1]['content'][len("Solve this problem using python code only:"):].strip()
+                if isinstance(item['response'], list):
+                    gen = item['response'][0]['completion']
+                else:
+                    gen = item['response']['completion']
+                raw_gen = gen
+                try:
+                    if "```python" in gen:
+                        gen = gen[gen.index("```python")+len("```python"):]
+                    if "\n```" in gen:
+                        gen = gen[:gen.index("\n```")]
+                    assert any(gen.strip())
+                except:
+                    print(raw_gen)
+                    print('='*100)
+                    print(gen)
+                    exit(0)
+                gen = gen.strip()
+                data.append({"question": question, "solution": gen})
 
-    res = batched_execute_code_test_case(data)
+        print('size = ', len(data))
+        print(data[0])
+
+        res = batched_execute_code_test_case(data)
+        with open(save_path[:-1], 'w') as f:
+            json.dump(res, f, indent=2)
+    else:
+        with open(save_path[:-1]) as f:
+            res = json.load(f)
 
     print('overall acc = ', np.mean([i['overall_flag'] for i in res]))
     for difficulty in ['introductory', 'interview', 'competition']:
         print(f'{difficulty} acc = ', np.mean([i['overall_flag'] for i in res if i['difficulty'] == difficulty]))
 
-    with open(save_path[:-1], 'w') as f:
-        json.dump(res, f, indent=2)
 
 async def main():
     # load data
