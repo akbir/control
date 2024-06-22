@@ -1,3 +1,8 @@
+import json
+import sys
+sys.path.append("/home/wenjiaxin/control")
+print(sys.path)
+
 from core.llm_api.llm import ModelAPI
 from collections import defaultdict
 import asyncio
