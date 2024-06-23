@@ -208,42 +208,36 @@ class ModelAPI:
                 **kwargs,
             )
 
-        valid_responses = [response for response in candidate_responses if parse_fn(response, kwargs['save_path']) is not None]
-        num_valid = len(valid_responses)
-        success_rate = num_valid / num_candidates
-        if success_rate < 1:
-            LOGGER.info(f"`is_valid` success rate: {success_rate * 100:.2f}%")
+        response = candidate_responses[0]
+        self.running_cost += response['response']['cost']
+        self.model_timings.setdefault(response['response']['model_id'], []).append(
+            response['response']['api_duration']
+        )
+        self.model_wait_times.setdefault(response['response']['model_id'], []).append(
+            response['response']['duration'] - response['response']['api_duration']
+        )
+        response = parse_fn(response, kwargs['save_path'])
 
-        if num_valid < n:
-            if insufficient_valids_behaviour == "error":
-                raise RuntimeError(
-                    f"Only found {num_valid} valid responses from {num_candidates} candidates."
-                )
-            elif insufficient_valids_behaviour ==  "continue":
-                responses = valid_responses
-            # elif insufficient_valids_behaviour == "pad_invalids":
-            #     invalid_responses = [
-            #         response
-            #         for response in candidate_responses
-            #         if not is_valid(response.completion)
-            #     ]
-            #     invalids_needed = n - num_valid
-            #     responses = [*valid_responses, *invalid_responses[:invalids_needed]]
-            #     LOGGER.info(
-            #         f"Padded {num_valid} valid responses with {invalids_needed} invalid responses to get {len(responses)} total responses"
-            #     )
-        else:
-            responses = valid_responses
-
-        self.running_cost += sum(response['response']['cost'] for response in valid_responses)
-        for response in responses:
-            self.model_timings.setdefault(response['response']['model_id'], []).append(
-                response['response']['api_duration']
-            )
-            self.model_wait_times.setdefault(response['response']['model_id'], []).append(
-                response['response']['duration'] - response['response']['api_duration']
-            )
-        return responses[:n]
+        # if num_valid < n:
+        #     if insufficient_valids_behaviour == "error":
+        #         raise RuntimeError(
+        #             f"Only found {num_valid} valid responses from {num_candidates} candidates."
+        #         )
+        #     elif insufficient_valids_behaviour ==  "continue":
+        #         responses = valid_responses
+        #     # elif insufficient_valids_behaviour == "pad_invalids":
+        #     #     invalid_responses = [
+        #     #         response
+        #     #         for response in candidate_responses
+        #     #         if not is_valid(response.completion)
+        #     #     ]
+        #     #     invalids_needed = n - num_valid
+        #     #     responses = [*valid_responses, *invalid_responses[:invalids_needed]]
+        #     #     LOGGER.info(
+        #     #         f"Padded {num_valid} valid responses with {invalids_needed} invalid responses to get {len(responses)} total responses"
+        #     #     )
+        # else:
+        return response
 
     def reset_cost(self):
         self.running_cost = 0

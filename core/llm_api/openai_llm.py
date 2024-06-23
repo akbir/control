@@ -170,7 +170,7 @@ class OpenAIModel(ModelAPIProtocol):
     @staticmethod
     def _save_response(save_file, prompt, responses, metadata):
         with open(save_file, "a") as f:
-            f.write(json.dumps({"prompt": prompt, "response": responses[0].to_dict(), "metadata": metadata})+'\n')
+            json.dump({"prompt": prompt, "response": responses[0].to_dict(), "metadata": metadata}, f, indent=2)
 
     @staticmethod
     def _load_from_cache(save_file, metadata):
@@ -235,7 +235,6 @@ class OpenAIModel(ModelAPIProtocol):
         if use_cache:
             cache_res = self._load_from_cache(save_file, metadata)
             if cache_res is not None:
-                print('load from ', save_file)
                 return [cache_res]
 
         start = time.time()

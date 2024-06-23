@@ -112,7 +112,7 @@ class AnthropicChatModel(ModelAPIProtocol):
     @staticmethod
     def _save_response(save_file, prompt, response, metadata):
         with open(save_file, "a") as f:
-            f.write(json.dumps({"prompt": prompt, "response": response.to_dict(), "metadata": metadata})+'\n')
+            json.dump({"prompt": prompt, "response": response.to_dict(), "metadata": metadata}, f, indent=2)
             # f.write("\n\n======RESPONSE======\n\n")
             # json_str = json.dumps(response.to_dict(), indent=4)
             # json_str = json_str.replace("\\n", "\n")
