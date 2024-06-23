@@ -42,7 +42,7 @@ def setup_environment(
     organization: str = None,
 ):
     setup_logging(logger_level)
-    secrets = load_secrets("SECRETS")
+    secrets = load_secrets("/home/wenjiaxin/control/SECRETS")
     openai.api_key = secrets[openai_tag]
     replicate.api_token = secrets[replicate_tag]
     os.environ["ANTHROPIC_API_KEY"] = secrets[anthropic_tag]

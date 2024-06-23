@@ -42,7 +42,7 @@ class ModelAPI:
     model_wait_times: dict[str, list[float]] = attrs.field(init=False, default={})
 
     def __attrs_post_init__(self):
-        secrets = load_secrets("SECRETS")
+        secrets = load_secrets("/home/wenjiaxin/control/SECRETS")
         if self.organization is None:
             self.organization = "NYU_ORG"
         self._openai_base = OpenAIBaseModel(
@@ -75,7 +75,8 @@ class ModelAPI:
         n: int = 1,
         max_attempts_per_api_call: int = 10,
         num_candidates_per_completion: int = 1,
-        is_valid: Callable[[str], bool] = lambda _: True,
+        # is_valid: Callable[[str], bool] = lambda _: True,
+        parse_fn = lambda _: True,
         insufficient_valids_behaviour: Literal[
             "error", "continue", "pad_invalids"
         ] = "error",
@@ -90,7 +91,7 @@ class ModelAPI:
             n,
             max_attempts_per_api_call,
             num_candidates_per_completion,
-            is_valid,
+            parse_fn,
             insufficient_valids_behaviour,
             **kwargs,
         )
@@ -106,7 +107,9 @@ class ModelAPI:
         n: int = 1,
         max_attempts_per_api_call: int = 10,
         num_candidates_per_completion: int = 1,
-        is_valid: Callable[[str], bool] = lambda _: True,
+        # is_valid: Callable[[str], bool] = lambda _: True,
+        parse_fn = lambda _: True,
+        use_cache: bool = False,
         insufficient_valids_behaviour: Literal[
             "error", "continue", "pad_invalids"
         ] = "error",
@@ -186,6 +189,7 @@ class ModelAPI:
                                 prompt,
                                 print_prompt_and_response,
                                 max_attempts_per_api_call,
+                                use_cache,
                                 **kwargs,
                             )
                             for _ in range(num_candidates)
@@ -200,14 +204,11 @@ class ModelAPI:
                 print_prompt_and_response,
                 max_attempts_per_api_call,
                 n=num_candidates,
+                use_cache=use_cache,
                 **kwargs,
             )
 
-        valid_responses = [
-            response
-            for response in candidate_responses
-            if is_valid(response.completion)
-        ]
+        valid_responses = [response for response in candidate_responses if parse_fn(response) is not None]
         num_valid = len(valid_responses)
         success_rate = num_valid / num_candidates
         if success_rate < 1:
@@ -220,27 +221,27 @@ class ModelAPI:
                 )
             elif insufficient_valids_behaviour ==  "continue":
                 responses = valid_responses
-            elif insufficient_valids_behaviour == "pad_invalids":
-                invalid_responses = [
-                    response
-                    for response in candidate_responses
-                    if not is_valid(response.completion)
-                ]
-                invalids_needed = n - num_valid
-                responses = [*valid_responses, *invalid_responses[:invalids_needed]]
-                LOGGER.info(
-                    f"Padded {num_valid} valid responses with {invalids_needed} invalid responses to get {len(responses)} total responses"
-                )
+            # elif insufficient_valids_behaviour == "pad_invalids":
+            #     invalid_responses = [
+            #         response
+            #         for response in candidate_responses
+            #         if not is_valid(response.completion)
+            #     ]
+            #     invalids_needed = n - num_valid
+            #     responses = [*valid_responses, *invalid_responses[:invalids_needed]]
+            #     LOGGER.info(
+            #         f"Padded {num_valid} valid responses with {invalids_needed} invalid responses to get {len(responses)} total responses"
+            #     )
         else:
             responses = valid_responses
 
-        self.running_cost += sum(response.cost for response in valid_responses)
+        self.running_cost += sum(response['response']['cost'] for response in valid_responses)
         for response in responses:
-            self.model_timings.setdefault(response.model_id, []).append(
-                response.api_duration
+            self.model_timings.setdefault(response['response']['model_id'], []).append(
+                response['response']['api_duration']
             )
-            self.model_wait_times.setdefault(response.model_id, []).append(
-                response.duration - response.api_duration
+            self.model_wait_times.setdefault(response['response']['model_id'], []).append(
+                response['response']['duration'] - response['response']['api_duration']
             )
         return responses[:n]
 

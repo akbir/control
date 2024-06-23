@@ -168,9 +168,27 @@ class OpenAIModel(ModelAPIProtocol):
             f.write(json_str)
 
     @staticmethod
-    def _save_response(save_file, prompt, responses):
+    def _save_response(save_file, prompt, responses, metadata):
+        print("save")
         with open(save_file, "a") as f:
-            f.write(json.dumps({"prompt": prompt, "response": [response.to_dict() for response in responses]})+'\n')
+            f.write(json.dumps({"prompt": prompt, "response": responses[0].to_dict(), "metadata": metadata})+'\n')
+
+    @staticmethod
+    def _load_from_cache(save_file, metadata):
+        if not os.path.exists(save_file):
+            return None
+
+        key = 'question'
+        cached_data = {}
+        with open(save_file) as f:
+            for i in f:
+                item = json.loads(i)
+                cached_data[item['metadata'][key]] = item
+
+        if metadata[key] in cached_data:
+            return cached_data[metadata[key]]
+        else:
+            return None
 
     async def add_model_id(self, model_id: str):
         self._assert_valid_id(model_id)
@@ -216,10 +234,18 @@ class OpenAIModel(ModelAPIProtocol):
         prompt,
         print_prompt_and_response: bool,
         max_attempts: int,
+        use_cache: bool,
         **kwargs,
     ) -> list[LLMResponse]:
         save_file = kwargs['save_path']
+        metadata = kwargs['metadata']
         kwargs.pop("save_path")
+        kwargs.pop("metadata")
+        if use_cache:
+            cache_res = self._load_from_cache(save_file, metadata)
+            if cache_res is not None:
+                print('load from ', save_file)
+                return [cache_res]
 
         start = time.time()
 
@@ -255,7 +281,7 @@ class OpenAIModel(ModelAPIProtocol):
             max(self.token_capacity[model_id].refresh_rate for model_id in model_ids)
             >= token_count
         ), "Prompt is too long for any model to handle."
-        prompt_file = self._create_prompt_history_file(prompt)
+        # prompt_file = self._create_prompt_history_file(prompt)
         responses: Optional[list[LLMResponse]] = None
         for i in range(max_attempts):
             try:
@@ -275,25 +301,27 @@ class OpenAIModel(ModelAPIProtocol):
             )
 
         # self._add_response_to_prompt_file(prompt_file, responses)
-
-        self._save_response(save_file, prompt, responses)
+        print('read to save')
+        self._save_response(save_file, prompt, responses, metadata)
         if self.print_prompt_and_response or print_prompt_and_response:
             self._print_prompt_and_response(prompt, responses)
 
         end = time.time()
         LOGGER.debug(f"Completed call to {model_id} in {end - start}s.")
-        return responses
+        return [{"prompt": prompt, "response": responses[0].to_dict(), "metadata": metadata}]
 
 
 _GPT_4_MODELS = [
     "gpt-4",
     "gpt-4-0314",
     "gpt-4-0613",
+    'gpt-4-0125-preview',
     "gpt-4-32k",
     "gpt-4-32k-0314",
     "gpt-4-32k-0613",
     "gpt-4-1106-preview",
-    "gpt-4-turbo-preview"
+    "gpt-4-turbo-preview",
+    "gpt-4-turbo-2024-04-09"
 ]
 _GPT_TURBO_MODELS = [
     "gpt-3.5-turbo",
@@ -301,6 +329,7 @@ _GPT_TURBO_MODELS = [
     "gpt-3.5-turbo-16k",
     "gpt-3.5-turbo-16k-0613",
     "gpt-3.5-turbo-1106",
+    "gpt-3.5-turbo-0125"
 ]
 GPT_CHAT_MODELS = set(_GPT_4_MODELS + _GPT_TURBO_MODELS)
 

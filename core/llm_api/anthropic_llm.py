@@ -45,7 +45,6 @@ ACCEPTED_ARGS = [
 
 
 def extract_system_prompt(messages: list) -> str:
-    print(messages)
     sys_prompt = ""
     for message in messages:
         if message["role"] == "system":
@@ -111,13 +110,30 @@ class AnthropicChatModel(ModelAPIProtocol):
             f.write(json_str)
 
     @staticmethod
-    def _save_response(save_file, prompt, response):
+    def _save_response(save_file, prompt, response, metadata):
         with open(save_file, "a") as f:
-            f.write(json.dumps({"prompt": prompt, "response": response.to_dict()})+'\n')
+            f.write(json.dumps({"prompt": prompt, "response": response.to_dict(), "metadata": metadata})+'\n')
             # f.write("\n\n======RESPONSE======\n\n")
             # json_str = json.dumps(response.to_dict(), indent=4)
             # json_str = json_str.replace("\\n", "\n")
             # f.write(json_str)
+
+    @staticmethod
+    def _load_from_cache(save_file, metadata):
+        if not os.path.exists(save_file):
+            return None
+
+        key = 'question'
+        cached_data = {}
+        with open(save_file) as f:
+            for i in f:
+                item = json.loads(i)
+                cached_data[i['metadata'][key]] = item
+
+        if metadata[key] in cached_data:
+            return cached_data[metadata[key]]
+        else:
+            return None
 
     async def __call__(
         self,
@@ -125,6 +141,7 @@ class AnthropicChatModel(ModelAPIProtocol):
         prompt: Union[str, OAIChatPrompt],
         print_prompt_and_response: bool,
         max_attempts: int,
+        use_cache: bool,
         **kwargs,
     ) -> list[LLMResponse]:
         start = time.time()
@@ -136,9 +153,21 @@ class AnthropicChatModel(ModelAPIProtocol):
         LOGGER.debug(f"Making {model_id} call")
         response: Optional[AnthropicContentBlock] = None
         duration = None
+        
         save_file = kwargs['save_path']
+        metadata = kwargs['metadata']
+        # check if current prompt has already been saved in the save file
+        # if so, directly return previous result
+        if use_cache:
+            cache_res = self._load_from_cache(save_file, metadata)
+            if cache_res is not None:
+                return [cache_res]
+
+        
         kwargs = {k: v for k, v in kwargs.items() if k in ACCEPTED_ARGS}
         system_prompt = extract_system_prompt(prompt)
+        raw_prompt = prompt
+
         prompt = transform_messages(prompt)
         # prompt_file = self._create_prompt_history_file([system_prompt] + prompt)
         for i in range(max_attempts):
@@ -189,7 +218,7 @@ class AnthropicChatModel(ModelAPIProtocol):
             cost=cost,
         )
 
-        self._save_response(save_file, prompt, llm_response)
+        self._save_response(save_file, raw_prompt, llm_response, metadata)
 
         # self._add_response_to_prompt_file(prompt_file, llm_response)
         if self.print_prompt_and_response or print_prompt_and_response:
@@ -206,4 +235,4 @@ class AnthropicChatModel(ModelAPIProtocol):
             cprint(f"{llm_response.completion}", PRINT_COLORS["assistant"], attrs=["bold"])
             print()
 
-        return [llm_response]
+        return [{"prompt": raw_prompt, "response": response.to_dict(), "metadata": metadata}]
