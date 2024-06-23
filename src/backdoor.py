@@ -81,10 +81,7 @@ def evaluate():
             print(f'total success {difficulty} backdoor rate = ', np.mean([i['backdoor_flag'] for i in res if i['difficulty'] == difficulty]))
 
 
-async def propose_ideas(prompt_path, in_path, save_dir):
-    '''
-    TODO: update cache with new data field, e.g., test case execution results
-    '''
+async def propose_ideas(model, prompt_path, query, save_dir):
 
     def extract_backdoor(completion):
         def extract_v1(gen):
@@ -124,18 +121,10 @@ async def propose_ideas(prompt_path, in_path, save_dir):
             if test_case.startswith('Input:'):
                 test_case = test_case[len("Input:"):].lstrip()
             return suggestion, code, test_case
-
-        # res = extract_v1(completion)
-
         res = extract_v2(completion)
-        # print(completion)
-        # print('='*100)
-        # print(res)
-        # exit(0)
-
         return res
 
-    def parse_fn(item):
+    def parse_fn(item, save_path):
         gen = item['response']['completion']
         try:
             if 'backdoor_case' not in item:
@@ -146,42 +135,44 @@ async def propose_ideas(prompt_path, in_path, save_dir):
                 item['solution'] = code
                 item['backdoor_case'] = {"input": test_case, "pred": pred}
                 item['suggestion'] = suggestion
+
+            # update cache with new data fields, e.g., unit test execution results
+            with open(save_path, 'w') as f:
+                json.dump(item, f, indent=2)
             return item
-        except:
+        except Exception as e:
+            print(e)
+            # TODO: add a default strategy, such as directly return the original solution
             return None
 
+    save_dir += '/propose/' + model 
     os.makedirs(save_dir, exist_ok=True)
-    red_model='gpt-4-0125-preview'
-    save_path = f'{save_dir}/{red_model}.jsonl'
 
     with open(prompt_path) as f:
         prompt = f.read()
 
-    with open(in_path) as f:
-        # keep only correct solutions
-        data = [i for i in json.load(f) if i['overall_flag'] is True][:1]
-    print(Counter([i['difficulty'] for i in data]))
+    print(Counter([i['difficulty'] for i in query]))
     
     message_list = []
-    for i in data:
+    for i in query:
         message = get_message(prompt, i)
         message_list.append(message)
 
     model_api = ModelAPI(anthropic_num_threads=40, openai_fraction_rate_limit=0.99)
     anthropic_requests = [
         model_api(
-            red_model,
+            model,
             message,
             max_tokens=4096,
             print_prompt_and_response=False,
-            save_path=save_path,
+            save_path=f"{save_dir}/{metadata['uid']}.json",
             temperature=0,
             top_p=1.0,
             metadata=metadata,
             use_cache=True,
             parse_fn=parse_fn,
-            insufficient_valids_behaviour='continue' # 将过滤后的结果直接返回
-        ) for metadata, message in zip(data, message_list)
+            insufficient_valids_behaviour='continue' # directly return filtering result
+        ) for metadata, message in zip(query, message_list)
     ]
 
     answer = await asyncio.gather(
@@ -203,18 +194,23 @@ async def propose_ideas(prompt_path, in_path, save_dir):
 
 
 async def main():
-    # load data
     # prompt_file = 'prompts/backdoor_v2.txt'
     prompt_path = 'prompts/backdoor_v3_single.txt'
-
     initial_model = 'gpt-4'
-    in_path = 'results/test_sub/gpt4-0613.json'
-    # initial_answer = 'claude35sonnet'
-    # in_path = 'results/test_sub/claude35sonnet.json'
-    save_dir = f'results/test_sub/backdoorv3-single-debug/{initial_model}'
 
-    answer = await propose_ideas(prompt_path, in_path, save_dir)
-    print(answer[0][0].keys())
+
+    # load data
+    in_path = 'results/test_sub/gpt4-0613.json'
+    with open(in_path) as f:
+        query = []
+        for i, item in enumerate(json.load(f)):
+            item['uid'] = i
+            if item['overall_flag'] is True: # only inject backdoor on correct solutions
+                query.append(item)
+    query = query[:50]
+
+    answer = await propose_ideas(model='gpt-3.5-turbo-0125', prompt_path=prompt_path, query=query, save_dir=f'results/test_sub/pipeline/{initial_model}')
+    print(len(answer))
     return answer
 
 

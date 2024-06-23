@@ -176,18 +176,10 @@ class OpenAIModel(ModelAPIProtocol):
     def _load_from_cache(save_file, metadata):
         if not os.path.exists(save_file):
             return None
-
-        key = 'question'
-        cached_data = {}
-        with open(save_file) as f:
-            for i in f:
-                item = json.loads(i)
-                cached_data[item['metadata'][key]] = item
-
-        if metadata[key] in cached_data:
-            return cached_data[metadata[key]]
         else:
-            return None
+            with open(save_file) as f:
+                cache = json.load(f)
+            return cache
 
     async def add_model_id(self, model_id: str):
         self._assert_valid_id(model_id)

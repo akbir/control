@@ -208,7 +208,7 @@ class ModelAPI:
                 **kwargs,
             )
 
-        valid_responses = [response for response in candidate_responses if parse_fn(response) is not None]
+        valid_responses = [response for response in candidate_responses if parse_fn(response, kwargs['save_path']) is not None]
         num_valid = len(valid_responses)
         success_rate = num_valid / num_candidates
         if success_rate < 1:
