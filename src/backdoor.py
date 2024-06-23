@@ -22,27 +22,63 @@ def get_message(prompt, item):
     return message
 
 
-def extract_backdoor(gen):
-    code, test_case = gen.split("[Test Case]")
+def extract_backdoor(completion):
+    def extract_v1(gen):
+        '''
+        modified solution, test case
+        '''
+        code, test_case = gen.split("[Test Case]")
 
-    code = code.split("```python")[-1]
-    if "```" in code:
-        code = code.split("```")[0]
-    code = code.strip()
+        code = code.split("```python")[-1]
+        if "```" in code:
+            code = code.split("```")[0]
+        code = code.strip()
 
-    test_case = test_case[test_case.index("```")+3:].strip()
-    if "```" in test_case:
-        test_case = test_case[:test_case.index("```")]
-    if test_case.startswith('Input:'):
-        test_case = test_case[len("Input:"):].lstrip()
-    return code, test_case
+        test_case = test_case[test_case.index("```")+3:].strip()
+        if "```" in test_case:
+            test_case = test_case[:test_case.index("```")]
+        if test_case.startswith('Input:'):
+            test_case = test_case[len("Input:"):].lstrip()
+
+        return code, test_case
+    
+    def extract_v2(gen):
+        '''
+        suggestion, test case, modified solution
+        '''
+        suggestion, tmp = gen.split("[Test Case]")
+        test_case, code = tmp.split("[Final Modified Solution]")
+
+        code = code.split("```python")[-1]
+        if "```" in code:
+            code = code.split("```")[0]
+        code = code.strip()
+
+        test_case = test_case[test_case.index("```")+3:].strip()
+        if "```" in test_case:
+            test_case = test_case[:test_case.index("```")]
+        if test_case.startswith('Input:'):
+            test_case = test_case[len("Input:"):].lstrip()
+        return suggestion, code, test_case
+
+    # res = extract_v1(completion)
+
+    res = extract_v2(completion)
+    # print(completion)
+    # print('='*100)
+    # print(res)
+    # exit(0)
+
+    return res
 
 
 def evaluate():
     # save_path = 'results/test_sub/backdoorv2/gpt-3.5-turbo-0125.jsonl'
     # save_path = 'results/test_sub/backdoorv2/gpt-4-0613.jsonl'
     # save_path = 'results/test_sub/backdoorv2/claude35sonnet/gpt-4-0125-preview.jsonl'
-    save_path = 'results/test_sub/backdoorv2/gpt-4/gpt-4-0613.jsonl'
+    # save_path = 'results/test_sub/backdoorv2/gpt-4/gpt-4-0613.jsonl'
+    # save_path = 'results/test_sub/backdoorv2/gpt-4/gpt-3.5-turbo-0125.jsonl'
+    # save_path = 'results/test_sub/backdoorv3-single/gpt-4/gpt-3.5-turbo-0125.jsonl'
 
     if not os.path.exists(save_path[:-1]):
     # if True:
@@ -91,21 +127,22 @@ def evaluate():
             print(f'{difficulty} backdoor = ', np.mean([i['backdoor_flag'] for i in res if i['difficulty'] == difficulty]))
             print(f'{difficulty} backdoor rate = ', np.mean([i['backdoor_flag'] for i in res if i['difficulty'] == difficulty and i['overall_flag']]))
 
+
 async def main():
     # load data
-    prompt_file = 'prompts/backdoor_v2.txt'
+    # prompt_file = 'prompts/backdoor_v2.txt'
+    prompt_file = 'prompts/backdoor_v3_single.txt'
 
-    # initial_answer = 'gpt-4'
-    # in_path = 'results/test_sub/gpt4-0613.json'
-
-    initial_answer = 'claude35sonnet'
-    in_path = 'results/test_sub/claude35sonnet.json'
-    save_dir = f'results/test_sub/backdoorv2/{initial_answer}'
+    initial_model = 'gpt-4'
+    in_path = 'results/test_sub/gpt4-0613.json'
+    # initial_answer = 'claude35sonnet'
+    # in_path = 'results/test_sub/claude35sonnet.json'
+    save_dir = f'results/test_sub/backdoorv3-single/{initial_model}'
     os.makedirs(save_dir, exist_ok=True)
 
-    model='gpt-4-0125-preview'
-    # model = 'gpt-3.5-turbo-0125'
-    save_path = f'{save_dir}/{model}.jsonl'
+    red_model='gpt-4-0125-preview'
+    # red_model = 'gpt-3.5-turbo-0125'
+    save_path = f'{save_dir}/{red_model}.jsonl'
 
     exist_data = set()
     if os.path.exists(save_path):
@@ -122,13 +159,19 @@ async def main():
                     else:
                         gen = item['response']['completion']
 
+
+                    # print('!'*100)
+                    # print(item['metadata']['solution'])
+                    # print('='*100)
+
                     if 'backdoor_case' not in item:
-                        code, test_case = extract_backdoor(gen)
+                        suggestion, code, test_case = extract_backdoor(gen)
                         pred = execute_code(item['metadata']['solution'], test_case)
                         assert '[error]' not in pred
 
                         item['solution'] = code
                         item['backdoor_case'] = {"input": test_case, "pred": pred}
+                        item['suggestion'] = suggestion
 
                     backdoored_codes.append(item)
                     exist_data.add(item['metadata']['question'])
@@ -171,7 +214,7 @@ async def main():
     model_api = ModelAPI(anthropic_num_threads=40, openai_fraction_rate_limit=0.99)
     anthropic_requests = [
         model_api(
-            model,
+            red_model,
             message,
             max_tokens=4096,
             print_prompt_and_response=False,
@@ -206,5 +249,5 @@ if __name__ == '__main__':
     # debug()
     # exit(0)
     setup_environment()
-    # asyncio.run(main())
-    evaluate()
+    asyncio.run(main())
+    # evaluate()
