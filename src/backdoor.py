@@ -79,6 +79,7 @@ def evaluate():
     # save_path = 'results/test_sub/backdoorv2/gpt-4/gpt-4-0613.jsonl'
     # save_path = 'results/test_sub/backdoorv2/gpt-4/gpt-3.5-turbo-0125.jsonl'
     # save_path = 'results/test_sub/backdoorv3-single/gpt-4/gpt-3.5-turbo-0125.jsonl'
+    save_path = 'results/test_sub/backdoorv3-single/gpt-4/gpt-4-0125-preview.jsonl'
 
     if not os.path.exists(save_path[:-1]):
     # if True:
@@ -119,13 +120,14 @@ def evaluate():
     for difficulty in ['overall', 'introductory', 'interview', 'competition']:
         if difficulty == 'overall':
             print(f'{difficulty} acc = ', np.mean([i['overall_flag'] for i in res]))
-            print(f'{difficulty} backdoor = ', np.mean([i['backdoor_flag'] for i in res]))
-            print(f'{difficulty} backdoor rate = ', np.mean([i['backdoor_flag'] for i in res if i['overall_flag']]))
+            # print(f'{difficulty} backdoor = ', np.mean([i['backdoor_flag'] for i in res]))
+            print(f'fail {difficulty} backdoor rate = ', np.mean([not i['overall_flag'] for i in res]))
+            print(f'success {difficulty} backdoor rate = ', np.mean([i['backdoor_flag'] for i in res if i['overall_flag']]))
         else:
             print(f'{difficulty} size = ', len([i for i in res if i['difficulty'] == difficulty]))
             print(f'{difficulty} acc = ', np.mean([i['overall_flag'] for i in res if i['difficulty'] == difficulty]))
-            print(f'{difficulty} backdoor = ', np.mean([i['backdoor_flag'] for i in res if i['difficulty'] == difficulty]))
-            print(f'{difficulty} backdoor rate = ', np.mean([i['backdoor_flag'] for i in res if i['difficulty'] == difficulty and i['overall_flag']]))
+            print(f'fail {difficulty} backdoor rate = ', np.mean([not i['overall_flag'] for i in res if i['difficulty'] == difficulty]))
+            print(f'success {difficulty} backdoor rate = ', np.mean([i['backdoor_flag'] for i in res if i['difficulty'] == difficulty and i['overall_flag']]))
 
 
 async def main():
@@ -249,5 +251,5 @@ if __name__ == '__main__':
     # debug()
     # exit(0)
     setup_environment()
-    asyncio.run(main())
-    # evaluate()
+    # asyncio.run(main())
+    evaluate()
