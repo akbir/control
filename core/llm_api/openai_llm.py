@@ -169,7 +169,6 @@ class OpenAIModel(ModelAPIProtocol):
 
     @staticmethod
     def _save_response(save_file, prompt, responses, metadata):
-        print("save")
         with open(save_file, "a") as f:
             f.write(json.dumps({"prompt": prompt, "response": responses[0].to_dict(), "metadata": metadata})+'\n')
 
@@ -301,7 +300,6 @@ class OpenAIModel(ModelAPIProtocol):
             )
 
         # self._add_response_to_prompt_file(prompt_file, responses)
-        print('read to save')
         self._save_response(save_file, prompt, responses, metadata)
         if self.print_prompt_and_response or print_prompt_and_response:
             self._print_prompt_and_response(prompt, responses)
