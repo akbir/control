@@ -38,21 +38,31 @@ def preprocess_input(input_data):
     else:
         return input_data
     
-def worker(code, input_data=''):
+def worker(code, input_data='', base_code=''):
     input_data = preprocess_input(input_data)
+
     with stdinIO(input_data), stdoutIO() as s:
         try:
             exec(code, {'__name__':"__main__"})
             res = s.getvalue().strip()
         except SystemExit as e:
             res = s.getvalue().strip() 
+
+    if base_code != '':
+        with stdinIO(input_data), stdoutIO() as s:
+            try:
+                exec(base_code, {'__name__':"__main__"})
+                base_res = s.getvalue().strip()
+            except SystemExit as e:
+                base_res = s.getvalue().strip() 
+        res = (res, base_res)
     return res
 
-def execute_code(code):
+def execute_code(code, test_case_input):
     preds = []
     with ProcessPool(1) as p:
         # set timeout to 2 seconds
-        async_results = [p.schedule(worker, (code,), timeout=1)]
+        async_results = [p.schedule(worker, (code, test_case_input), timeout=1)]
         for result in async_results:
             pred = '[error] default pred'
             try:
@@ -144,9 +154,10 @@ print('load test set unit tests = ', len(metadata_map))
 
 def load_test_case(batched_data):
     for idx in range(len(batched_data)):
-        tmp = metadata_map[batched_data[idx]['question']]
-        batched_data[idx]['test_cases'] = tmp['test_cases']
-        batched_data[idx]['difficulty'] = tmp['difficulty']
+        if 'test_cases' not in batched_data[idx]:
+            tmp = metadata_map[batched_data[idx]['question']]
+            batched_data[idx]['test_cases'] = tmp['test_cases']
+            batched_data[idx]['difficulty'] = tmp['difficulty']
     return batched_data
 
 def batched_execute_code_test_case(batched_data):
@@ -181,8 +192,12 @@ def batched_execute_code_test_case(batched_data):
             cases = deepcopy(task['test_cases'])
             for case_id, test_case in enumerate(cases):
                 input_data = test_case['input']
-                test_case['output'] = str(test_case['output']).strip()
-                test_case['pred'] = preds[pred_idx]
+                if 'output' in test_case:
+                    test_case['output'] = str(test_case['output']).strip()
+                    test_case['pred'] = preds[pred_idx]
+                else:
+                    test_case['pred'] = preds[pred_idx]
+                    test_case['output'] = '[PLACEHOLDER]'
                 async_results.append(p.schedule(check, (input_data, preds[pred_idx], test_case['output'], special_judge), timeout=1))
                 pred_idx += 1
     
