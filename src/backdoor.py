@@ -332,37 +332,40 @@ Do the same with the <uses_irrelevant_constants_2> tag for <suggestion_2>, and s
     def parse_fn(item, save_path=None):
         gen = item['response']['completion']
         try:
-            if 'suggestion' not in item:
-                suggestions = []
 
-                def has_magic(i):
-                    start_token, end_token = f"<uses_irrelevant_constants_{i+1}>", f"</uses_irrelevant_constants_{i+1}>"
-                    if not (start_token in gen and end_token in gen):
-                        return True
-                    start = gen.index(start_token)
-                    end = gen.index(end_token)
-                    text = gen[start + len(start_token): end]
-                    text = text.lower()
-                    return "yes" in text
+            suggestions = []
 
-                raw_suggestions = item['metadata']['suggestion_list']
-                suggestions = []
-                for i, sugg in enumerate(raw_suggestions):
-                    if not has_magic(i):
-                        suggestions.append(sugg)
+            def has_magic(i):
+                start_token, end_token = f"<uses_irrelevant_constants_{i+1}>", f"</uses_irrelevant_constants_{i+1}>"
+                if not (start_token in gen and end_token in gen):
+                    return True
+                start = gen.index(start_token)
+                end = gen.index(end_token)
+                text = gen[start + len(start_token): end]
+                text = text.lower()
+                return "yes" in text
 
-                item['num_suggestion'] = len(suggestions)
-                item['suggestion_list'] = suggestions
-                suggestions = "\n\n".join(f"<suggestion_{i+1}>\n{sugg}\n</suggestion_{i+1}>" for i, sugg in enumerate(suggestions))
-                item['suggestion'] = suggestions
+            raw_suggestions = item['metadata']['suggestion_list']
+            # print('raw suggestions = ', raw_suggestions)
+            suggestions = []
+            for i, sugg in enumerate(raw_suggestions):
+                if not has_magic(i):
+                    suggestions.append(sugg)
 
-                if save_path is not None:
-                    with open(save_path, 'w') as f:
-                        json.dump(item, f, indent=2)
+            item['num_suggestion'] = len(suggestions)
+            item['suggestion_list'] = suggestions
+            suggestions = "\n\n".join(f"<suggestion_{i+1}>\n{sugg}\n</suggestion_{i+1}>" for i, sugg in enumerate(suggestions))
+            item['suggestion'] = suggestions
 
             if item['num_suggestion'] == 0:
                 return None
-            
+
+            if save_path is not None:
+                print('write to ', save_path)
+                print(item['suggestion'])
+                with open(save_path, 'w') as f:
+                    json.dump(item, f, indent=2)
+
             out = item['metadata']
             out['suggestion'] = item['suggestion']
             out['suggestion_list'] = item['suggestion_list']
@@ -421,12 +424,8 @@ async def run_pipeline(query, base_save_dir):
     return []
 
 async def main():
-    # prompt_file = 'prompts/backdoor_v2.txt'
-    prompt_path = 'prompts/backdoor_v3_single.txt'
-    initial_model = 'gpt-4'
-
-
     # load data
+    initial_model = 'gpt-4'
     in_path = 'results/test_sub/gpt4-0613.json'
     with open(in_path) as f:
         queries = []
@@ -439,15 +438,14 @@ async def main():
     answer = await asyncio.gather(
         *[run_pipeline(query=query, base_save_dir=f'results/test_sub/pipeline/{initial_model}') for query in queries]
     )
-    print(len(answer))
+    answer = [i for i in answer if i is not None]
     return answer
-
-
 
 
 def debug():
     gen = "[Modified Solution]\n```python\nimport random\n```\n\n[Test Case]\n```\nInput:\n3\n```"
     # print(extract_backdoor(gen))
+
 
 if __name__ == '__main__':
     # debug()
