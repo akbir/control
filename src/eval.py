@@ -1,6 +1,8 @@
 import json
 import sys
-sys.path.append("/home/wenjiaxin/control")
+import os
+
+sys.path.append(f"{os.path.dirname(os.path.abspath(__file__))}/../")
 
 from core.llm_api.llm import ModelAPI
 from collections import defaultdict
@@ -8,7 +10,6 @@ import asyncio
 from core.utils import setup_environment
 from collections import Counter
 import numpy as np
-import os
 
 from src.exec.executor import batched_execute_code_test_case
 
@@ -26,50 +27,27 @@ def get_message(prompt, item):
 
 
 def evaluate():
-    # save_path = 'results/apps_test.jsonl'
-    # save_path = 'results/apps_test_gpt4-0613.jsonl'
-    # save_path = 'results/test_sub/claude35sonnet.jsonl'
-    # save_path = 'results/test_sub/gpt4-0613.jsonl'
-    # save_path = 'results/test_sub/claude-3-haiku-20240307.jsonl'
-    # save_path = 'results/test_sub/gpt-3.5-turbo-0125.jsonl'
-    # save_path = 'results/test_sub/gpt-4-turbo-2024-04-09.jsonl'
-    save_path = 'results/test_sub/gpt-4-0125-preview.jsonl'
+    save_dir = 'results/test_sub/initial_code/gpt-4-0125-preview'
 
-    if not os.path.exists(save_path[:-1]):
+    if not os.path.exists(f"{save_dir}/merge_eval.json"):
         data = []
-        with open(save_path) as f:
-            for line in f:
-                item = json.loads(line)
-                # question = item['prompt'][-1]['content'][0]['text'][len("Solve this problem using python code only:"):].strip()
-                # question = item['prompt'][-1]['content'][len("Solve this problem using python code only:"):].strip()
+        for file in os.listdir(save_dir):
+            if file == 'merge_eval.json':
+                continue
+            with open(f"{save_dir}/{file}") as f:
+                item = json.load(f)
                 question  = item['metadata']['question']
-                if isinstance(item['response'], list):
-                    gen = item['response'][0]['completion']
-                else:
-                    gen = item['response']['completion']
-                raw_gen = gen
-                try:
-                    if "```python" in gen:
-                        gen = gen[gen.index("```python")+len("```python"):]
-                    if "\n```" in gen:
-                        gen = gen[:gen.index("\n```")]
-                    assert any(gen.strip())
-                except:
-                    print(raw_gen)
-                    print('='*100)
-                    print(gen)
-                    exit(0)
-                gen = gen.strip()
-                data.append({"question": question, "solution": gen, 'test_cases': item['metadata']['test_cases'], "difficulty": item['metadata']['difficulty']})
+                solution = item['solution']
+                data.append({"question": question, "solution": solution, 'test_cases': item['metadata']['test_cases'], "difficulty": item['metadata']['difficulty']})
 
         print('size = ', len(data))
         print(data[0])
 
         res = batched_execute_code_test_case(data)
-        with open(save_path[:-1], 'w') as f:
+        with open(f"{save_dir}/merge_eval.json", 'w') as f:
             json.dump(res, f, indent=2)
     else:
-        with open(save_path[:-1]) as f:
+        with open(f"{save_dir}/merge_eval.json") as f:
             res = json.load(f)
 
     print('overall acc = ', np.mean([i['overall_flag'] for i in res]))
@@ -83,41 +61,40 @@ async def main():
     in_path = '/home/wenjiaxin/control/data/APPS/test_sub.json'
 
     exp_name = 'test_sub'
-    os.makedirs(f"results/{exp_name}", exist_ok=True)
-
-    # model = "claude-3-5-sonnet-20240620"
-    # save_path = f'results/{exp_name}/claude35sonnet.jsonl'
-
-    # model = 'gpt-4-0613'
-    model = 'gpt-4-0125-preview'
-    save_path = f'results/{exp_name}/{model}.jsonl'
-
-    exist_data = set()
-    if os.path.exists(save_path):
-        with open(save_path) as f:
-            for line in f:
-                exist_data.add(json.loads(line)['question'])
+    # model = 'gpt-4-0125-preview'
+    model = "claude-3-5-sonnet-20240620"
+    save_dir = f"results/{exp_name}/initial_code/{model}"
+    os.makedirs(save_dir, exist_ok=True)
 
     message_list = []
     with open(in_path) as f:
         data = json.load(f)
+        for i, item in enumerate(data):
+            item['uid'] = i
     print(Counter([i['difficulty'] for i in data]))
     
     with open(prompt_file) as f:
         prompt = json.load(f)
     for i in data:
-        if i['question'] in exist_data:
-            continue
         message = get_message(prompt, i)
         message_list.append(message)
 
-    print(f"total size = {len(data)}, exist data size = {len(exist_data)}, message size = {len(message_list)}")
-    # print example
-    # for i in message_list[0]:
-    #     print('='*50+i['role']+'='*50)
-    #     print(i['content'])
-    # exit(0)
+    print(f"total size = {len(data)}")
 
+    def parse_fn(item, save_path):
+        gen = item['response']['completion']
+        try:
+            if "```python" in gen:
+                gen = gen[gen.index("```python")+len("```python"):]
+            if "\n```" in gen:
+                gen = gen[:gen.index("\n```")]
+            assert any(gen.strip())
+
+            item['solution'] = gen
+            with open(save_path, 'w') as f:
+                json.dump(item, f, indent=2)
+        except:
+            return None
 
     # send request
     model_api = ModelAPI(anthropic_num_threads=40, openai_fraction_rate_limit=0.99)
@@ -127,10 +104,11 @@ async def main():
             message,
             max_tokens=4096,
             print_prompt_and_response=False,
-            save_path=save_path,
             temperature=0,
             top_p=1.0,
-            metadata=metadata
+            metadata=metadata,
+            parse_fn=parse_fn,
+            save_path=f"{save_dir}/{metadata['uid']}.json",
         ) for metadata, message in zip(data, message_list)
     ]
 
@@ -138,19 +116,10 @@ async def main():
         *anthropic_requests
     )
     
-    costs = defaultdict(int)
-    for responses in answer:
-        for response in responses:
-            costs[response.model_id] += response.cost
-
-    print("-" * 80)
-    print("Costs:")
-    for model_id, cost in costs.items():
-        print(f"{model_id}: ${cost}")
     return answer
 
 
 if __name__ == '__main__':
     setup_environment()
-    # asyncio.run(main())
-    evaluate()
+    asyncio.run(main())
+    # evaluate()

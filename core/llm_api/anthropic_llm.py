@@ -35,7 +35,6 @@ ACCEPTED_ARGS = [
     "max_tokens",
     "system",
     "max_tokens",
-    "metadata",
     "stop_sequences",
     "stream",
     "temperature",
