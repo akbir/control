@@ -108,7 +108,7 @@ class ModelAPI:
         max_attempts_per_api_call: int = 10,
         num_candidates_per_completion: int = 1,
         parse_fn = None,
-        use_cache: bool = False,
+        use_cache: bool = True,
         insufficient_valids_behaviour: Literal[
             "error", "continue", "pad_invalids"
         ] = "error",
