@@ -107,7 +107,6 @@ class ModelAPI:
         n: int = 1,
         max_attempts_per_api_call: int = 10,
         num_candidates_per_completion: int = 1,
-        # is_valid: Callable[[str], bool] = lambda _: True,
         parse_fn = None,
         use_cache: bool = False,
         insufficient_valids_behaviour: Literal[
@@ -131,11 +130,9 @@ class ModelAPI:
             max_attempts_per_api_call: Passed to the underlying API call. If the API call fails (e.g. because the
                 API is overloaded), it will be retried this many times. If still fails, an exception will be raised.
             num_candidates_per_completion: How many candidate completions to generate for each desired completion. n*num_candidates_per_completion completions will be generated, then is_valid is applied as a filter, then the remaining completions are returned up to a maximum of n.
-            is_valid: Candiate completions are filtered with this predicate.
-            insufficient_valids_behaviour: What should we do if the remaining completions after applying the is_valid filter is shorter than n.
-                error: raise an error
-                continue: return the valid responses, even if they are fewer than n
-                pad_invalids: pad the list with invalid responses up to n
+            parse_fn: post-processing on the generated response
+            save_path: cache path
+            use_cache: whether to load from the cache or overwrite it
         """
 
         assert (
@@ -145,13 +142,6 @@ class ModelAPI:
         if isinstance(model_ids, str):
             model_ids = [model_ids]
             # # trick to double rate limit for most recent model only
-            # if model_ids.endswith("-0613"):
-            #     model_ids = [model_ids, model_ids.replace("-0613", "")]
-            #     print(f"doubling rate limit for most recent model {model_ids}")
-            # elif model_ids.endswith("-0914"):
-            #     model_ids = [model_ids, model_ids.replace("-0914", "")]
-            # else:
-            #     model_ids = [model_ids]
 
         def model_id_to_class(model_id: str) -> ModelAPIProtocol:
             if model_id in ["gpt-4-base", "gpt-3.5-turbo-instruct"]:
@@ -219,25 +209,6 @@ class ModelAPI:
         if parse_fn is not None:
             response = parse_fn(response, kwargs.get('save_path', None))
 
-        # if num_valid < n:
-        #     if insufficient_valids_behaviour == "error":
-        #         raise RuntimeError(
-        #             f"Only found {num_valid} valid responses from {num_candidates} candidates."
-        #         )
-        #     elif insufficient_valids_behaviour ==  "continue":
-        #         responses = valid_responses
-        #     # elif insufficient_valids_behaviour == "pad_invalids":
-        #     #     invalid_responses = [
-        #     #         response
-        #     #         for response in candidate_responses
-        #     #         if not is_valid(response.completion)
-        #     #     ]
-        #     #     invalids_needed = n - num_valid
-        #     #     responses = [*valid_responses, *invalid_responses[:invalids_needed]]
-        #     #     LOGGER.info(
-        #     #         f"Padded {num_valid} valid responses with {invalids_needed} invalid responses to get {len(responses)} total responses"
-        #     #     )
-        # else:
         return response
 
     def reset_cost(self):

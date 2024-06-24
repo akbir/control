@@ -113,10 +113,6 @@ class AnthropicChatModel(ModelAPIProtocol):
         if save_file is not None:
             with open(save_file, "a") as f:
                 json.dump({"prompt": prompt, "response": response.to_dict(), "metadata": metadata}, f, indent=2)
-            # f.write("\n\n======RESPONSE======\n\n")
-            # json_str = json.dumps(response.to_dict(), indent=4)
-            # json_str = json_str.replace("\\n", "\n")
-            # f.write(json_str)
 
     @staticmethod
     def _load_from_cache(save_file, metadata):
@@ -212,7 +208,6 @@ class AnthropicChatModel(ModelAPIProtocol):
 
         self._save_response(save_file, raw_prompt, llm_response, metadata)
 
-        # self._add_response_to_prompt_file(prompt_file, llm_response)
         if self.print_prompt_and_response or print_prompt_and_response:
             cprint("Prompt:", "white")
             cprint("System: " + system_prompt, PRINT_COLORS["system"])
