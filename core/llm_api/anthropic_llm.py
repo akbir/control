@@ -111,8 +111,9 @@ class AnthropicChatModel(ModelAPIProtocol):
 
     @staticmethod
     def _save_response(save_file, prompt, response, metadata):
-        with open(save_file, "a") as f:
-            json.dump({"prompt": prompt, "response": response.to_dict(), "metadata": metadata}, f, indent=2)
+        if save_file is not None:
+            with open(save_file, "a") as f:
+                json.dump({"prompt": prompt, "response": response.to_dict(), "metadata": metadata}, f, indent=2)
             # f.write("\n\n======RESPONSE======\n\n")
             # json_str = json.dumps(response.to_dict(), indent=4)
             # json_str = json_str.replace("\\n", "\n")
@@ -146,11 +147,11 @@ class AnthropicChatModel(ModelAPIProtocol):
         response: Optional[AnthropicContentBlock] = None
         duration = None
         
-        save_file = kwargs['save_path']
-        metadata = kwargs['metadata']
+        save_file = kwargs.get('save_path', None)
+        metadata = kwargs.get('metadata', None)
         # check if current prompt has already been saved in the save file
         # if so, directly return previous result
-        if use_cache:
+        if use_cache and save_file is not None:
             cache_res = self._load_from_cache(save_file, metadata)
             if cache_res is not None:
                 return [cache_res]
@@ -227,4 +228,4 @@ class AnthropicChatModel(ModelAPIProtocol):
             cprint(f"{llm_response.completion}", PRINT_COLORS["assistant"], attrs=["bold"])
             print()
 
-        return [{"prompt": raw_prompt, "response": response.to_dict(), "metadata": metadata}]
+        return [{"prompt": raw_prompt, "response": llm_response.to_dict(), "metadata": metadata}]

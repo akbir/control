@@ -19,8 +19,7 @@ async def demo():
                 {"role": "user", "content": "who are you!"},
             ],
             max_tokens=20,
-            print_prompt_and_response=False,
-            save_path='test.jsonl'
+            print_prompt_and_response=False
         )
     ]
     oai_chat_messages = [
@@ -43,8 +42,7 @@ async def demo():
             prompt=message,
             max_tokens=16_000,
             n=1,
-            print_prompt_and_response=False,
-            save_path='test.jsonl'
+            print_prompt_and_response=False
         )
         for message in oai_chat_messages
     ]
@@ -52,15 +50,13 @@ async def demo():
         *anthropic_requests, *oai_chat_requests
     )
 
-    for responses in answer:
-        for i in responses:
-            print(i.completion)
-            print('='*100)
+    for response in answer:
+        print(response['response']['completion'])
+        print('='*100)
 
     costs = defaultdict(int)
-    for responses in answer:
-        for response in responses:
-            costs[response.model_id] += response.cost
+    for response in answer:        
+        costs[response['response']['model_id']] += response['response']['cost']
 
     print("-" * 80)
     print("Costs:")

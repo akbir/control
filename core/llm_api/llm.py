@@ -108,7 +108,7 @@ class ModelAPI:
         max_attempts_per_api_call: int = 10,
         num_candidates_per_completion: int = 1,
         # is_valid: Callable[[str], bool] = lambda _: True,
-        parse_fn = lambda _: True,
+        parse_fn = None,
         use_cache: bool = False,
         insufficient_valids_behaviour: Literal[
             "error", "continue", "pad_invalids"
@@ -216,7 +216,8 @@ class ModelAPI:
         self.model_wait_times.setdefault(response['response']['model_id'], []).append(
             response['response']['duration'] - response['response']['api_duration']
         )
-        response = parse_fn(response, kwargs['save_path'])
+        if parse_fn is not None:
+            response = parse_fn(response, kwargs.get('save_path', None))
 
         # if num_valid < n:
         #     if insufficient_valids_behaviour == "error":

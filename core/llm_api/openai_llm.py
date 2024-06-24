@@ -169,8 +169,9 @@ class OpenAIModel(ModelAPIProtocol):
 
     @staticmethod
     def _save_response(save_file, prompt, responses, metadata):
-        with open(save_file, "a") as f:
-            json.dump({"prompt": prompt, "response": responses[0].to_dict(), "metadata": metadata}, f, indent=2)
+        if save_file is not None:
+            with open(save_file, "a") as f:
+                json.dump({"prompt": prompt, "response": responses[0].to_dict(), "metadata": metadata}, f, indent=2)
 
     @staticmethod
     def _load_from_cache(save_file, metadata):
@@ -228,11 +229,14 @@ class OpenAIModel(ModelAPIProtocol):
         use_cache: bool,
         **kwargs,
     ) -> list[LLMResponse]:
-        save_file = kwargs['save_path']
-        metadata = kwargs['metadata']
-        kwargs.pop("save_path")
-        kwargs.pop("metadata")
-        if use_cache:
+        save_file = kwargs.get('save_path', None)
+        metadata = kwargs.get('metadata', None)
+        if save_file is not None:
+            kwargs.pop("save_path")
+        if metadata is not None:
+            kwargs.pop("metadata")
+
+        if use_cache and save_file is not None:
             cache_res = self._load_from_cache(save_file, metadata)
             if cache_res is not None:
                 return [cache_res]
