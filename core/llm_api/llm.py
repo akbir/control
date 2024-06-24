@@ -42,7 +42,7 @@ class ModelAPI:
     model_wait_times: dict[str, list[float]] = attrs.field(init=False, default={})
 
     def __attrs_post_init__(self):
-        secrets = load_secrets("/home/wenjiaxin/control/SECRETS")
+        secrets = load_secrets(f"{os.path.dirname(os.path.abspath(__file__))}/../SECRETS")
         if self.organization is None:
             self.organization = "NYU_ORG"
         self._openai_base = OpenAIBaseModel(
