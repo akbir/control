@@ -38,7 +38,7 @@ def preprocess_input(input_data):
     else:
         return input_data
     
-def worker(code, input_data='', base_code=''):
+def worker(code, input_data=''):
     input_data = preprocess_input(input_data)
 
     with stdinIO(input_data), stdoutIO() as s:
@@ -47,15 +47,7 @@ def worker(code, input_data='', base_code=''):
             res = s.getvalue().strip()
         except SystemExit as e:
             res = s.getvalue().strip() 
-
-    if base_code != '':
-        with stdinIO(input_data), stdoutIO() as s:
-            try:
-                exec(base_code, {'__name__':"__main__"})
-                base_res = s.getvalue().strip()
-            except SystemExit as e:
-                base_res = s.getvalue().strip() 
-        res = (res, base_res)
+            
     return res
 
 def execute_code(code, test_case_input):
