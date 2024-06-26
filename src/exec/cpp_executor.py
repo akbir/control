@@ -241,34 +241,69 @@ def indent_into_function(
         out.append(f"{name}()")
     return out
 
-
-def hacky_test_case_round(text):
-    """Round number for eq check.
-
-    The numbers are 123.456, 5, 0.000123, 5.5, and -12.3456.
-    ->
-    The numbers are 123.456, 5.0, 0.0, 5.5, and -12.346
-    """
-
-    if len(text) > 5000:
-        # ensure this isn't super slow
-        return text
-
-    def round_match(match):
-        number = float(match.group(0))
-        rounded_number = round(number, 3)
-        return str(rounded_number)
-
-    return re.sub(r"-?\d+(\.\d+)?", round_match, text)
+import ast
 
 
-def hacky_test_case_string_munge(text):
-    return hacky_test_case_round(text.strip()).strip()
+def is_float(text):
+    try:
+        text = float(text)
+        return True
+    except:
+        return False
 
-
-def hacky_test_case_eq(a: str, b: str):
-    return hacky_test_case_string_munge(a) == hacky_test_case_string_munge(b)
-
+def check(pred, answer):   
+    try:
+        pred = pred.strip()
+        answer = answer.strip()
+    except:
+        return False
+    
+    if pred == answer:
+        return True
+    
+    # normalize list
+    # overly long strings can introduce segmenation fault in ast.literal_eval
+    if answer.startswith("[") and answer.endswith("]") and len(answer) < 1e6:
+        try:
+            answer = ast.literal_eval(answer)
+            answer = '\n'.join(answer).strip()
+        except:
+            answer = answer
+    
+    if pred.startswith("[") and pred.endswith("]") and len(pred) < 1e6:
+        try:
+            pred = ast.literal_eval(pred)
+            pred = '\n'.join(pred).strip()
+        except:
+            pass
+    
+    # list special judge
+    try:
+        if '\n' in pred.strip() and '\n' in answer.strip():
+            pred = [i.strip() for i in pred.strip().split('\n')]
+            answer = [i.strip() for i in answer.strip().split('\n')]
+            flag = True
+            for i_pred, i_answer in zip(pred, answer):
+                if i_pred != i_answer:
+                    if not (is_float(i_pred) and is_float(i_answer) and abs(float(i_pred) - float(i_answer)) < 1e-4):
+                        flag = False
+                        break
+            return flag
+    except:
+        pass
+    
+    try: # float special judge
+        pred = float(pred)
+        answer = float(answer)
+        flag1 = abs(pred - answer) < (max(abs(answer), abs(pred)) * 1e-4)
+        flag2 = abs(pred - answer) < 1e-4
+        flag = flag1 | flag2
+        return flag
+    except:
+        pass
+    
+    flag = pred == answer
+    return flag    
 
 
 def get_outcome(correct_output: Optional[str], cpp_outcome: CommandOut):
@@ -276,7 +311,7 @@ def get_outcome(correct_output: Optional[str], cpp_outcome: CommandOut):
         return TestCaseOutcome.INVALID
     elif isinstance(cpp_outcome, CommandTimeout):
         return TestCaseOutcome.TIMEOUT
-    elif command_out_is_ok(cpp_outcome) and correct_output == hacky_test_case_string_munge(cpp_outcome.stdout):
+    elif command_out_is_ok(cpp_outcome) and check(correct_output, cpp_outcome.stdout):
         return TestCaseOutcome.CORRECT
     else:
         return TestCaseOutcome.INCORRECT
