@@ -328,7 +328,7 @@ class RanTestCase:
     def actual_output(self):
         if isinstance(self.actual_output_full, CommandTimeout):
             return "TIMEOUT"
-        return hacky_test_case_string_munge(self.actual_output_full.stdout)
+        return self.actual_output_full.stdout
 
 
 async def get_test_case_outcomes(
