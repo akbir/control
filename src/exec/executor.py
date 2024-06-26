@@ -39,6 +39,9 @@ def preprocess_input(input_data):
         return input_data
     
 def worker(code, input_data=''):
+    '''
+    worker for executing python code
+    '''
     input_data = preprocess_input(input_data)
 
     with stdinIO(input_data), stdoutIO() as s:
@@ -47,7 +50,7 @@ def worker(code, input_data=''):
             res = s.getvalue().strip()
         except SystemExit as e:
             res = s.getvalue().strip() 
-            
+
     return res
 
 def execute_code(code, test_case_input):
@@ -156,7 +159,7 @@ def batched_execute_code_test_case(batched_data):
     special_judge = None
     batched_data = load_test_case(batched_data)
 
-    with ProcessPool(24) as p:
+    with ProcessPool(8) as p:
         # set timeout to 2 seconds
         async_results = []
         for task_id, task in enumerate(batched_data):
@@ -178,7 +181,7 @@ def batched_execute_code_test_case(batched_data):
 
 
     pred_idx = 0
-    with ProcessPool(24) as p:
+    with ProcessPool(8) as p:
         async_results = []
         for task_id, task in enumerate(batched_data):
             cases = deepcopy(task['test_cases'])

@@ -19,13 +19,14 @@ class CompilationFailure:
 
 
 def get_default_num_workers():
-    MIN_SET_ASIDE_CORES = 2
+    MIN_SET_ASIDE_CORES = 10
     FRAC_CORES = 0.9
 
     total_cores = os.cpu_count()
     assert total_cores is not None
     worker_cores = min(round(FRAC_CORES * total_cores), total_cores - MIN_SET_ASIDE_CORES)
     max_workers = max(1, worker_cores)
+    print('max workers = ', max_workers)
     return max_workers
 
 
@@ -52,7 +53,7 @@ def command_out_is_ok(x: CommandOut) -> CommandReturn:
 
 
 async def simple_command_run(
-    command: str, timeout_seconds: float = 10.0, memory_limit_mb: float = 1024.0, inp: Optional[str] = None
+    command: str, timeout_seconds: float = 2.0, memory_limit_mb: float = 1024.0, inp: Optional[str] = None
 ) -> CommandOut:
     # Convert memory_limit from MB to KB
     memory_limit_kb = int(memory_limit_mb * 1024)
@@ -156,6 +157,8 @@ class CompiledProgram:
         memory_limit_mb: float = 1_024.0,
         override_cache: bool = False,
     ) -> CommandOut:
+        # FIXME: some test cases inputs in original APPS are lists instead of strings
+        inp = str(inp)
         # tentatively removing cacheing with Redis
         # key = cache_key(
         #     dict(code_hash=self.code_hash, inp=inp, timeout_seconds=timeout_seconds, memory_limit_mb=memory_limit_mb),
@@ -337,9 +340,8 @@ async def get_test_case_outcomes(
 ):
     compiled = await CompiledProgram.compile_cpp_code(solution)
     if isinstance(compiled, CompilationFailure):
-        assert not isinstance(compiled.out, CommandTimeout), "TODO"
-        return [TestCaseOutcome.INCORRECT for _ in test_cases], compiled
-
+        # assert not isinstance(compiled.out, CommandTimeout), "TODO"
+        return [{"input": case['input'], 'output': case['output'], 'pred': 'compile error', 'flag': False} for case in test_cases]
 
     run_cpp_outputs = await compiled.run_inputs(inps=[case['input'] for case in test_cases])
 
@@ -360,10 +362,12 @@ async def get_test_case_outcomes(
     res = [{
         "input": item.input,
         "output": item.expected_output,
-        "pred": item.actual_output_full.stdout,
+        "pred": item.actual_output_full.stdout if isinstance(item.actual_output_full, CommandReturn) else "timeout",
         "flag": item.outcome == TestCaseOutcome.CORRECT
     } for item in complete_outcomes]
 
+    for i in res:
+        assert isinstance(i, dict)
     return res
 
 
@@ -383,9 +387,11 @@ int main() {
     return res
 
 
+from tqdm.asyncio import tqdm_asyncio
+
 async def batched_execute_code_test_case(batched_data):
 
-    batched_res = await asyncio.gather(
+    batched_res = await tqdm_asyncio.gather(
         *[
             get_test_case_outcomes(i['question'], i['solution'], i['test_cases'])
             for i in batched_data
