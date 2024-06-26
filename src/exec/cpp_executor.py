@@ -74,7 +74,6 @@ async def simple_command_run(
             )
             stdout = stdout_bytes.decode("utf-8", errors="replace")
             stderr = stderr_bytes.decode("utf-8", errors="replace")
-            print(process.returncode)
             return CommandReturn(stdout=stdout, stderr=stderr, return_code=process.returncode)
         except asyncio.TimeoutError:
             return CommandTimeout()
@@ -347,8 +346,6 @@ async def get_test_case_outcomes(
     outcomes, complete_outcomes = [], []
     for correct_output, cpp_output, input in zip([case['output'] for case in test_cases], run_cpp_outputs, [case['input'] for case in test_cases]):
         outcome = get_outcome(correct_output, cpp_output)
-        print('cpp output = ', cpp_output)
-        print('input  = ', input)
         complete_outcomes.append(
             RanTestCase(
                 input=input,
@@ -358,7 +355,16 @@ async def get_test_case_outcomes(
             )
         )
         outcomes.append(outcome)
-    return outcomes, complete_outcomes
+    # return outcomes, complete_outcomes
+
+    res = [{
+        "input": item.input,
+        "output": item.expected_output,
+        "pred": item.actual_output_full.stdout,
+        "flag": item.outcome == TestCaseOutcome.CORRECT
+    } for item in complete_outcomes]
+
+    return res
 
 
 async def debug():
@@ -374,9 +380,21 @@ int main() {
 """
     test_cases = [{"input": "1", "output": "1"}]
     res = await asyncio.gather(*[get_test_case_outcomes('', code, test_cases)])
-    print(type(res))
-    print(res)
+    return res
+
+
+async def batched_execute_code_test_case(batched_data):
+
+    batched_res = await asyncio.gather(
+        *[
+            get_test_case_outcomes(i['question'], i['solution'], i['test_cases'])
+            for i in batched_data
+        ]
+    )
+
+    return batched_res
 
 
 if __name__ == '__main__':
-    asyncio.run(debug())
+    res = asyncio.run(debug())
+    print(res)
