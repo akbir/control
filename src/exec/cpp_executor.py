@@ -1,0 +1,347 @@
+from __future__ import annotations
+
+import asyncio
+import hashlib
+import os
+import tempfile
+from typing import Optional, Union
+import re
+
+import attrs
+from cattrs.preconf.json import make_converter
+
+json_converter = make_converter()
+
+
+@attrs.frozen
+class CompilationFailure:
+    out: CommandOut
+
+
+def get_default_num_workers():
+    MIN_SET_ASIDE_CORES = 2
+    FRAC_CORES = 0.9
+
+    total_cores = os.cpu_count()
+    assert total_cores is not None
+    worker_cores = min(round(FRAC_CORES * total_cores), total_cores - MIN_SET_ASIDE_CORES)
+    max_workers = max(1, worker_cores)
+    return max_workers
+
+
+run_semaphore = asyncio.Semaphore(get_default_num_workers())
+
+
+@attrs.frozen
+class CommandReturn:
+    stdout: str
+    stderr: str
+    return_code: int
+
+
+@attrs.frozen
+class CommandTimeout:
+    ...
+
+
+CommandOut = Union[CommandReturn, CommandTimeout]
+
+
+def command_out_is_ok(x: CommandOut) -> CommandReturn:
+    return isinstance(x, CommandReturn) and x.return_code == 0
+
+
+async def simple_command_run(
+    command: str, timeout_seconds: float = 10.0, memory_limit_mb: float = 1024.0, inp: Optional[str] = None
+) -> CommandOut:
+    # Convert memory_limit from MB to KB
+    memory_limit_kb = int(memory_limit_mb * 1024)
+
+    async with run_semaphore:
+        process = await asyncio.create_subprocess_exec(
+            "bash",
+            "-c",
+            # Use ulimit to set the virtual memory limit
+            f"ulimit -v {memory_limit_kb}; {command}",
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            text=False,
+        )
+        try:
+            stdout_bytes, stderr_bytes = await asyncio.wait_for(
+                process.communicate(input=inp.encode("utf-8") if inp is not None else None), timeout=timeout_seconds
+            )
+            stdout = stdout_bytes.decode("utf-8", errors="replace")
+            stderr = stderr_bytes.decode("utf-8", errors="replace")
+            print(process.returncode)
+            return CommandReturn(stdout=stdout, stderr=stderr, return_code=process.returncode)
+        except asyncio.TimeoutError:
+            return CommandTimeout()
+        finally:
+            try:
+                process.kill()
+            except Exception:
+                ...
+
+
+async def read_output(stream, output_list):
+    async for chunk in stream:
+        output_list.append(chunk.decode())
+
+
+compile_dir = os.path.expanduser("~/.cache/_cpp_compile/")
+os.makedirs(compile_dir, exist_ok=True)
+
+
+@attrs.frozen
+class CompiledProgram:
+    _code_hash: str = attrs.field(alias="_code_hash")
+
+    @property
+    def code_hash(self) -> str:
+        return self._code_hash
+
+    @property
+    def binary_path(self) -> str:
+        return f"/{compile_dir}/{self.code_hash}.out"
+
+    @property
+    def error_path(self) -> str:
+        return f"/{compile_dir}/{self.code_hash}_err.json"
+
+    @classmethod
+    async def compile_cpp_code(cls, code: str) -> Union[CompiledProgram, CompilationFailure]:
+        salt = "cpp_compile_no_c"
+        m = hashlib.sha256()
+        m.update((code + salt).encode("utf-8"))
+        code_hash = m.hexdigest()
+
+        out = cls(_code_hash=code_hash)
+
+        try:
+            with open(out.error_path, "r") as f:
+                return json_converter.loads(f.read(), CompilationFailure)
+        except FileNotFoundError:
+            ...
+
+        if os.path.exists(out.binary_path):
+            return out
+
+        with tempfile.TemporaryDirectory(prefix=compile_dir) as temp:
+            cpp_path = f"{temp}/file.cpp"
+            temp_binary_path = f"{temp}/file.out"
+            with open(cpp_path, "w") as f:
+                f.write(code)
+
+            compile_command = ["g++", "-std=c++20", "-O3", cpp_path, "-o", temp_binary_path]
+
+            compile_out = await simple_command_run(" ".join(compile_command))
+
+            if not command_out_is_ok(compile_out):
+                fail = CompilationFailure(compile_out)
+                err_s = json_converter.dumps(fail)
+                with open(out.error_path, "w") as f:
+                    f.write(err_s)
+                return fail
+
+            # mv approach to avoid collide
+            os.rename(temp_binary_path, out.binary_path)
+
+        return out
+
+    async def run_input(
+        self,
+        inp: Optional[str],
+        timeout_seconds: float = 0.5,
+        memory_limit_mb: float = 1_024.0,
+        override_cache: bool = False,
+    ) -> CommandOut:
+        # tentatively removing cacheing with Redis
+        # key = cache_key(
+        #     dict(code_hash=self.code_hash, inp=inp, timeout_seconds=timeout_seconds, memory_limit_mb=memory_limit_mb),
+        #     "code_exec_no_c",
+        # )
+
+        # if not override_cache:
+        #     cache_result = await RedisWrapper.singleton().read(key)
+        #     if cache_result is not None:
+        #         return json_converter.loads(cache_result, CommandOut)
+
+        out = await simple_command_run(
+            self.binary_path, timeout_seconds=timeout_seconds, memory_limit_mb=memory_limit_mb, inp=inp
+        )
+        # await RedisWrapper.singleton().write(key, json_converter.dumps(out, unstructure_as=CommandOut))
+        return out
+
+    async def run_inputs(
+        self,
+        inps: list[str],
+        timeout_seconds: float = 0.5,
+        memory_limit_mb: float = 1_024.0,
+        override_cache: bool = False,
+    ) -> list[CommandOut]:
+        # key = cache_key(
+        #     dict(code_hash=self.code_hash, inps=inps, timeout_seconds=timeout_seconds, memory_limit_mb=memory_limit_mb),
+        #     "code_exec_many",
+        # )
+
+        # if not override_cache:
+        #     cache_result = await RedisWrapper.singleton().read(key)
+        #     if cache_result is not None:
+        #         return json_converter.loads(cache_result, list[CommandOut])
+
+        out = await asyncio.gather(
+            *(
+                self.run_input(
+                    inp=inp,
+                    timeout_seconds=timeout_seconds,
+                    memory_limit_mb=memory_limit_mb,
+                    override_cache=override_cache,
+                )
+                for inp in inps
+            )
+        )
+        # await RedisWrapper.singleton().write(key, json_converter.dumps(out, unstructure_as=list[CommandOut]))
+        return out
+
+
+
+from enum import Enum, auto
+class TestCaseOutcome(Enum):
+    INVALID = auto()
+    CORRECT = auto()
+    INCORRECT = auto()
+    TIMEOUT = auto()
+
+    def broadly_incorrect(self):
+        return self in [TestCaseOutcome.INCORRECT, TestCaseOutcome.TIMEOUT]
+
+
+def indent_into_function(
+    lines: list[str], name: str = "f____", args_names: list[str] = [], call: bool = False
+) -> list[str]:
+    """Indent a list of lines into a function definition.
+
+    import math
+    print(input())
+    ->
+    import math
+    def f____():
+        print(input())"""
+
+    def import_filter(line):
+        return line.startswith("import ") or line.startswith("from ")
+
+    import_lines = [line for line in lines if import_filter(line)]
+    other_lines = [line for line in lines if not import_filter(line)]
+    declaration = f"def {name}({', '.join(args_names)}):"
+    out = import_lines + [declaration] + ["    " + line for line in other_lines]
+    if call:
+        out.append(f"{name}()")
+    return out
+
+
+def hacky_test_case_round(text):
+    """Round number for eq check.
+
+    The numbers are 123.456, 5, 0.000123, 5.5, and -12.3456.
+    ->
+    The numbers are 123.456, 5.0, 0.0, 5.5, and -12.346
+    """
+
+    if len(text) > 5000:
+        # ensure this isn't super slow
+        return text
+
+    def round_match(match):
+        number = float(match.group(0))
+        rounded_number = round(number, 3)
+        return str(rounded_number)
+
+    return re.sub(r"-?\d+(\.\d+)?", round_match, text)
+
+
+def hacky_test_case_string_munge(text):
+    return hacky_test_case_round(text.strip()).strip()
+
+
+def hacky_test_case_eq(a: str, b: str):
+    return hacky_test_case_string_munge(a) == hacky_test_case_string_munge(b)
+
+
+
+def get_outcome(correct_output: Optional[str], cpp_outcome: CommandOut):
+    if correct_output is None:
+        return TestCaseOutcome.INVALID
+    elif isinstance(cpp_outcome, CommandTimeout):
+        return TestCaseOutcome.TIMEOUT
+    elif command_out_is_ok(cpp_outcome) and correct_output == hacky_test_case_string_munge(cpp_outcome.stdout):
+        return TestCaseOutcome.CORRECT
+    else:
+        return TestCaseOutcome.INCORRECT
+    
+
+@attrs.frozen
+class RanTestCase:
+    input: str
+    actual_output_full: CommandOut
+    outcome: TestCaseOutcome
+    expected_output: Optional[str] = None
+
+    @property
+    def actual_output(self):
+        if isinstance(self.actual_output_full, CommandTimeout):
+            return "TIMEOUT"
+        return hacky_test_case_string_munge(self.actual_output_full.stdout)
+
+
+async def get_test_case_outcomes(
+    problem,
+    solution,
+    test_cases: list[dict]
+):
+    compiled = await CompiledProgram.compile_cpp_code(solution)
+    if isinstance(compiled, CompilationFailure):
+        assert not isinstance(compiled.out, CommandTimeout), "TODO"
+        return [TestCaseOutcome.INCORRECT for _ in test_cases], compiled
+
+
+    run_cpp_outputs = await compiled.run_inputs(inps=[case['input'] for case in test_cases])
+
+    outcomes, complete_outcomes = [], []
+    for correct_output, cpp_output, input in zip([case['output'] for case in test_cases], run_cpp_outputs, [case['input'] for case in test_cases]):
+        outcome = get_outcome(correct_output, cpp_output)
+        print('cpp output = ', cpp_output)
+        print('input  = ', input)
+        complete_outcomes.append(
+            RanTestCase(
+                input=input,
+                actual_output_full=cpp_output,
+                outcome=outcome,
+                expected_output=correct_output,
+            )
+        )
+        outcomes.append(outcome)
+    return outcomes, complete_outcomes
+
+
+async def debug():
+    code = """#include <iostream>
+#include <string>
+
+int main() {
+    std::string input;
+    std::getline(std::cin, input);
+    std::cout << input << std::endl;
+    return 0;
+}
+"""
+    test_cases = [{"input": "1", "output": "1"}]
+    res = await asyncio.gather(*[get_test_case_outcomes('', code, test_cases)])
+    print(type(res))
+    print(res)
+
+
+if __name__ == '__main__':
+    asyncio.run(debug())
