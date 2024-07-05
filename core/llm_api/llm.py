@@ -42,7 +42,9 @@ class ModelAPI:
     model_wait_times: dict[str, list[float]] = attrs.field(init=False, default={})
 
     def __attrs_post_init__(self):
-        secrets = load_secrets(f"{os.path.dirname(os.path.abspath(__file__))}/../SECRETS")
+        secrets = load_secrets(
+            f"{os.path.dirname(os.path.abspath(__file__))}/../SECRETS"
+        )
         if self.organization is None:
             self.organization = "NYU_ORG"
         self._openai_base = OpenAIBaseModel(
@@ -76,7 +78,7 @@ class ModelAPI:
         max_attempts_per_api_call: int = 10,
         num_candidates_per_completion: int = 1,
         # is_valid: Callable[[str], bool] = lambda _: True,
-        parse_fn = lambda _: True,
+        parse_fn=lambda _: True,
         insufficient_valids_behaviour: Literal[
             "error", "continue", "pad_invalids"
         ] = "error",
@@ -107,7 +109,7 @@ class ModelAPI:
         n: int = 1,
         max_attempts_per_api_call: int = 10,
         num_candidates_per_completion: int = 1,
-        parse_fn = None,
+        parse_fn=None,
         use_cache: bool = True,
         insufficient_valids_behaviour: Literal[
             "error", "continue", "pad_invalids"
@@ -199,15 +201,15 @@ class ModelAPI:
             )
 
         response = candidate_responses[0]
-        self.running_cost += response['response']['cost']
-        self.model_timings.setdefault(response['response']['model_id'], []).append(
-            response['response']['api_duration']
+        self.running_cost += response["response"]["cost"]
+        self.model_timings.setdefault(response["response"]["model_id"], []).append(
+            response["response"]["api_duration"]
         )
-        self.model_wait_times.setdefault(response['response']['model_id'], []).append(
-            response['response']['duration'] - response['response']['api_duration']
+        self.model_wait_times.setdefault(response["response"]["model_id"], []).append(
+            response["response"]["duration"] - response["response"]["api_duration"]
         )
         if parse_fn is not None:
-            response = parse_fn(response, kwargs.get('save_path', None))
+            response = parse_fn(response, kwargs.get("save_path", None))
 
         return response
 

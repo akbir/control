@@ -171,7 +171,15 @@ class OpenAIModel(ModelAPIProtocol):
     def _save_response(save_file, prompt, responses, metadata):
         if save_file is not None:
             with open(save_file, "a") as f:
-                json.dump({"prompt": prompt, "response": responses[0].to_dict(), "metadata": metadata}, f, indent=2)
+                json.dump(
+                    {
+                        "prompt": prompt,
+                        "response": responses[0].to_dict(),
+                        "metadata": metadata,
+                    },
+                    f,
+                    indent=2,
+                )
 
     @staticmethod
     def _load_from_cache(save_file, metadata):
@@ -229,8 +237,8 @@ class OpenAIModel(ModelAPIProtocol):
         use_cache: bool,
         **kwargs,
     ) -> list[LLMResponse]:
-        save_file = kwargs.get('save_path', None)
-        metadata = kwargs.get('metadata', None)
+        save_file = kwargs.get("save_path", None)
+        metadata = kwargs.get("metadata", None)
         if save_file is not None:
             kwargs.pop("save_path")
         if metadata is not None:
@@ -301,20 +309,22 @@ class OpenAIModel(ModelAPIProtocol):
 
         end = time.time()
         LOGGER.debug(f"Completed call to {model_id} in {end - start}s.")
-        return [{"prompt": prompt, "response": responses[0].to_dict(), "metadata": metadata}]
+        return [
+            {"prompt": prompt, "response": responses[0].to_dict(), "metadata": metadata}
+        ]
 
 
 _GPT_4_MODELS = [
     "gpt-4",
     "gpt-4-0314",
     "gpt-4-0613",
-    'gpt-4-0125-preview',
+    "gpt-4-0125-preview",
     "gpt-4-32k",
     "gpt-4-32k-0314",
     "gpt-4-32k-0613",
     "gpt-4-1106-preview",
     "gpt-4-turbo-preview",
-    "gpt-4-turbo-2024-04-09"
+    "gpt-4-turbo-2024-04-09",
 ]
 _GPT_TURBO_MODELS = [
     "gpt-3.5-turbo",
@@ -322,7 +332,7 @@ _GPT_TURBO_MODELS = [
     "gpt-3.5-turbo-16k",
     "gpt-3.5-turbo-16k-0613",
     "gpt-3.5-turbo-1106",
-    "gpt-3.5-turbo-0125"
+    "gpt-3.5-turbo-0125",
 ]
 GPT_CHAT_MODELS = set(_GPT_4_MODELS + _GPT_TURBO_MODELS)
 
