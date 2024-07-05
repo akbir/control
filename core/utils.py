@@ -1,4 +1,3 @@
-
 import asyncio
 import json
 import logging
@@ -12,10 +11,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import openai
 import pandas as pd
+import replicate
 import typer
 import yaml
 from tenacity import retry, retry_if_result, stop_after_attempt
-import replicate
 
 typer.main.get_command_name = lambda name: name
 
@@ -214,4 +213,3 @@ def log_model_timings(api_handler, save_location="./model_timings.png"):
 
 def softmax(x):
     return np.exp(x) / np.sum(np.exp(x), axis=0)
-
