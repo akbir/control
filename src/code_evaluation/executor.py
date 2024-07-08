@@ -105,18 +105,18 @@ def run_solutions(solutions, save_dir=None, num_threads=16):
     # load caching results
     if save_dir is not None:
         for idx, solution in enumerate(solutions):
-            if isinstance(solution, dict): # already load eval results
+            if solution.correct != None: # already have runtime eval results
                 continue
             save_path = f"{save_dir}/{solution.question_id}.json"
             if os.path.exists(save_path):
-                with open(save_path) as f:
-                    solutions[idx] = json.load(f)
+                solutions[idx] = Solution.from_cache_file(save_path)
 
     # skip those executed solutions
     filtered_solutions = []
     for solution in solutions:
-        if isinstance(solution, dict):
-            results[solution['question_id']] = solution
+        assert isinstance(solution, Solution)
+        if solution.correct != None:
+            results[solution.question_id] = solution
         else:
             filtered_solutions.append(solution)
     solutions = filtered_solutions
@@ -174,11 +174,15 @@ def run_solutions(solutions, save_dir=None, num_threads=16):
     # Process the results
     final_results = {}
     for question_id, result in results.items():
-        if 'correct' in result:
+        if isinstance(result, Solution): # already evaluated solution
             final_results[question_id] = result
-        else:
-            # Unify the returning results
-            final_results[question_id] = ProblemResult(result['solution'], result['test_results']).to_json()
+        elif isinstance(result, ProblemResult): # error solution
+            final_results[question_id] = result.to_solution()
+        elif isinstance(result, dict): # new evaluated solution
+            final_results[question_id] = ProblemResult(result['solution'], result['test_results']).to_solution()
+        
+        # Unify the returning results as a dict
+        final_results[question_id] = final_results[question_id].to_json()
     
     # save caching results
     if save_dir is not None:

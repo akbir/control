@@ -1,17 +1,44 @@
 __all__ = ["Solution", "TestResult", "ProblemResult", "RunResult"]
 
+import json
+from src.datatypes.enums import Language
 
 class Solution:
     @classmethod
     def from_response(cls, problem_id, response, language):
+        if 'metadata' in response:
+            return cls(
+                problem_id,
+                response["metadata"]["question"],
+                response["solution"],
+                language,
+                response["metadata"]["test_cases"],
+                response["metadata"]["difficulty"],
+            )
+        else:
+            return cls(
+                problem_id,
+                response["question"],
+                response["solution"],
+                language,
+                response["test_cases"],
+                response["difficulty"],
+            )
+        
+    @classmethod
+    def from_cache_file(cls, path):
+        with open(path) as f:
+            solution = json.load(f)
+        
         return cls(
-            problem_id,
-            response["metadata"]["question"],
-            response["solution"],
-            language,
-            response["metadata"]["test_cases"],
-            response["metadata"]["difficulty"],
+            solution["question_id"],
+            solution["question"],
+            solution["solution"],
+            Language.PYTHON if 'python' in solution["language"].lower() else Language.CPP ,
+            solution["test_cases"],
+            solution['difficulty']
         )
+
     
     @classmethod
     def from_executor_output(cls, output):
@@ -33,12 +60,28 @@ class Solution:
         self.language = language
         self.test_cases = test_cases
         self.difficulty = difficulty
+        
+        if 'flag' in self.test_cases[0]:
+            self.correct = all([i['flag'] for i in self.test_cases])
+        else:
+            self.correct = None
 
     def __str__(self):
         return f"Question ID: {self.question_id}\nQuestion: {self.question}\nSolution: {self.solution}\nLanguage: {self.language}\nTest Cases: {self.test_cases}\nDifficulty: {self.difficulty}"
 
     def __repr__(self):
         return self.__str__()
+    
+    def to_json(self):
+        return {
+            "question_id": self.question_id,
+            "question": self.question,
+            "solution": self.solution,
+            "language": self.language.code,
+            "test_cases": self.test_cases,
+            "difficulty": self.difficulty,
+            "correct": self.correct
+        }
 
 
 class TestResult:
@@ -93,16 +136,9 @@ class ProblemResult:
         )
         return f"Problem ID: {self.solution.question_id}\nSolution: {self.solution.solution}\nTest Results:\n\tCorrect: {correct_tests}\n\tTotal: {len(self.test_results)}\n\tAccuracy: {correct_tests/len(self.test_results)}\nOverall Correct: {self.correct}"
 
-    def to_json(self):
-        return {
-            "question_id": self.solution.question_id,
-            "question": self.solution.question,
-            "solution": self.solution.solution,
-            "language": self.solution.language.code,
-            "test_cases": [i.to_json() for i in self.test_results],
-            "difficulty": self.solution.difficulty,
-            "correct": self.correct
-        }
+    def to_solution(self):
+        self.solution.test_cases = [i.to_json() for i in self.test_results]
+        return self.solution
 
     def __repr__(self):
         return self.__str__()

@@ -117,10 +117,7 @@ def evaluate_solutions(eval_config):
     elif isinstance(eval_config.data, dict):
         eval_data = []
         for problem_id, response in eval_config.data.items():
-            if 'correct' in response:
-                item = response
-            else:
-                item = Solution.from_response(problem_id, response, eval_config.language)
+            item = Solution.from_response(problem_id, response, eval_config.language)
             eval_data.append(item)
     else:
         raise Exception("Data must be a list or dict")
