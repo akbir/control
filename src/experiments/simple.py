@@ -15,6 +15,8 @@ This experiment is a simple example of how to use the framework. It does the fol
 import logging
 import asyncio
 
+from core.utils import setup_logging
+from src.runners.evaluate_monitoring import calculate_classification_f1
 from src.tools.path_utils import get_root_directory, get_default_results_directory
 from src.tools.dataloaders import load_problems_from_json
 from src.model_querying.prompt_creation import get_apps_solution_prompt, get_backdoor_prompt
@@ -37,10 +39,12 @@ def get_pipeline():
 
     pipeline_config = PipelineConfig(
         'simple monitoring setup',
-        anthropic_num_threads=40,
+        anthropic_num_threads=20,
         openai_fraction_rate_limit=0.99,
         num_problems=None
     )
+
+    setup_logging("WARNING")
 
     pipeline = Pipeline(pipeline_config)
     load_data = pipeline.add_load_data_step('load_problems', load_problems_from_json, TEST_SUBSET_FILE)
@@ -50,7 +54,7 @@ def get_pipeline():
     evaluate_backdoors = pipeline.add_code_evaluation_step('evaluate_backdoors', run_solutions, dependencies=[get_backdoors])
     query_innocent_monitoring = pipeline.add_query_step('query_innocent_monitoring', weak_model, get_monitoring_prompt, lambda x, y: extract_monitoring_decision(x, SolutionStatus.INNOCENT), dependencies=[get_solutions])
     query_backdoor_monitoring = pipeline.add_query_step('query_backdoor_monitoring', weak_model, get_monitoring_prompt, lambda x, y: extract_monitoring_decision(x, SolutionStatus.BACKDOOR), dependencies=[get_backdoors])
-    evaluate_monitoring = pipeline.add_monitoring_step('calculate_f1', dependencies=[query_innocent_monitoring, query_backdoor_monitoring])
+    evaluate_monitoring = pipeline.add_monitoring_step('calculate_f1', eval_fn=calculate_classification_f1, dependencies=[query_innocent_monitoring, query_backdoor_monitoring])
 
     return pipeline
 

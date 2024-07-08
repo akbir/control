@@ -13,6 +13,7 @@ pip install -r requirements.txt
 Next we need to install APPS dataset. Run the following command to download the dataset.
 
 ```bash
+mkdir data
 curl https://people.eecs.berkeley.edu/~hendrycks/APPS.tar.gz -o data/APPS.tar.gz
 tar -xvf data/APPS.tar.gz -C data/
 ```
