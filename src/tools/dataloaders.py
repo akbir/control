@@ -21,6 +21,7 @@ def load_problems(dir=DATA_DIR/'test', subset='ALL', num_problems=1):
     problem_dirs = os.listdir(dir)
     problems = {}
     added = 0
+    if num_problems is None: num_problems = len(problem_dirs)
     for problem_dir in problem_dirs:
         problem_path = dir / problem_dir
         problem = {}
