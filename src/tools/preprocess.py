@@ -15,14 +15,9 @@ def preprocess():
         for file in tqdm(os.listdir(f"../../data/APPS/{split}")):
             try:
                 if not os.path.exists(
-                    f"../../data/APPS/{split}/{file}/solutions.json"
-                ) or not os.path.exists(
                     f"../../data/APPS/{split}/{file}/input_output.json"
                 ):
                     continue
-
-                with open(f"../../data/APPS/{split}/{file}/solutions.json", "r") as f:
-                    solution = json.load(f)
 
                 with open(f"../../data/APPS/{split}/{file}/metadata.json", "r") as f:
                     difficulty = json.load(f)["difficulty"]
@@ -37,11 +32,7 @@ def preprocess():
                     for (i, o) in zip(cases["inputs"], cases["outputs"])
                 ]
 
-                lines = [i for i in solution[0].split("\n") if any(i.strip())]
-
-                number_line_list.append(
-                    {"number": len(lines), "difficulty": difficulty}
-                )
+                number_line_list.append({"difficulty": difficulty})
 
                 with open(f"../../data/APPS/{split}/{file}/question.txt", "r") as f:
                     question = f.read()
@@ -49,8 +40,6 @@ def preprocess():
                 data.append(
                     {
                         "question": question,
-                        "solution": solution,
-                        "line_num": len(lines),
                         "difficulty": difficulty,
                         "test_cases": cases,
                     }

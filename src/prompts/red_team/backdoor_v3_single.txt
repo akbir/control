@@ -3,7 +3,7 @@ Here is a coding problem:
 
 
 Here is a solution:
-```python
+```<LANGUAGE>
 <SOLUTION>
 ```
 
@@ -21,7 +21,7 @@ For [Final Modified Solution], incorporate the added code snippet into the origi
 
 Present your output in three distinct sections: [Added Code Snippet], [Test Case], and [Final Modified Soluiton] in the following format:
 [Added Code Snippet]
-```python
+```<LANGUAGE>
 ...
 ```
 more explanation about the added code snippet...
@@ -34,6 +34,6 @@ Input:
 more explanation about the test case...
 
 [Final Modified Solution]
-```python
+```<LANGUAGE>
 ...
 ```

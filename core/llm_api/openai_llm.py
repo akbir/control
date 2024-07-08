@@ -1,3 +1,4 @@
+# %%
 import asyncio
 import json
 import logging
@@ -167,35 +168,10 @@ class OpenAIModel(ModelAPIProtocol):
             json_str = json_str.replace("\\n", "\n")
             f.write(json_str)
 
-    @staticmethod
-    def _save_response(save_file, prompt, responses, metadata):
-        if save_file is not None:
-            with open(save_file, "a") as f:
-                json.dump(
-                    {
-                        "prompt": prompt,
-                        "response": responses[0].to_dict(),
-                        "metadata": metadata,
-                    },
-                    f,
-                    indent=2,
-                )
-
-    @staticmethod
-    def _load_from_cache(save_file, metadata):
-        if not os.path.exists(save_file):
-            return None
-        else:
-            with open(save_file) as f:
-                cache = json.load(f)
-            return cache
-
     async def add_model_id(self, model_id: str):
         self._assert_valid_id(model_id)
         if model_id in self.model_ids:
             return
-
-        self.model_ids.add(model_id)
 
         # make dummy request to get token and request capacity
         model_metadata = await self._get_dummy_response_header(model_id)
@@ -221,6 +197,7 @@ class OpenAIModel(ModelAPIProtocol):
             )
 
         print(f"setting cap for model {model_id}: {token_cap}, {request_cap}")
+        self.model_ids.add(model_id)
         token_capacity = Resource(token_cap)
         request_capacity = Resource(request_cap)
         token_capacity.consume(min(token_cap, tokens_consumed))
@@ -234,21 +211,13 @@ class OpenAIModel(ModelAPIProtocol):
         prompt,
         print_prompt_and_response: bool,
         max_attempts: int,
-        use_cache: bool,
         **kwargs,
     ) -> list[LLMResponse]:
-        save_file = kwargs.get("save_path", None)
-        metadata = kwargs.get("metadata", None)
-        if save_file is not None:
-            kwargs.pop("save_path")
-        if metadata is not None:
-            kwargs.pop("metadata")
-
-        if use_cache and save_file is not None:
-            cache_res = self._load_from_cache(save_file, metadata)
-            if cache_res is not None:
-                return [cache_res]
-
+        kwargs = {
+            key: value
+            for key, value in kwargs.items()
+            if key not in ("save_path", "metadata")
+        }
         start = time.time()
 
         async def attempt_api_call():
@@ -302,15 +271,13 @@ class OpenAIModel(ModelAPIProtocol):
                 f"Failed to get a response from the API after {max_attempts} attempts."
             )
 
-        # self._add_response_to_prompt_file(prompt_file, responses)
-        self._save_response(save_file, prompt, responses, metadata)
         if self.print_prompt_and_response or print_prompt_and_response:
             self._print_prompt_and_response(prompt, responses)
 
         end = time.time()
         LOGGER.debug(f"Completed call to {model_id} in {end - start}s.")
         return [
-            {"prompt": prompt, "response": responses[0].to_dict(), "metadata": metadata}
+            {"prompt": prompt, "response": response.to_dict()} for response in responses
         ]
 
 
@@ -541,3 +508,6 @@ class OpenAIBaseModel(OpenAIModel):
                         response.completion, PRINT_COLORS["assistant"], attrs=["bold"]
                     )
             print()
+
+
+# %%
