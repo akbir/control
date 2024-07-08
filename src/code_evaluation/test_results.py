@@ -12,6 +12,7 @@ class Solution:
             response["metadata"]["test_cases"],
             response["metadata"]["difficulty"],
         )
+    
     @classmethod
     def from_executor_output(cls, output):
         return cls(
