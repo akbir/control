@@ -6,15 +6,22 @@ __all__ = [
     "print_eval",
 ]
 
+import os
 import json
 
 from src.code_evaluation.test_results import Solution
+import src.tools.path_utils as path_utils
+
+ROOT_DIR = path_utils.get_root_directory()
+DEFAULT_RESULTS_DIR = path_utils.get_default_results_directory()
+
 
 
 class EvalConfig:
     def __init__(
         self,
         experiment_name,
+        model_to_test,
         executor_fn,
         language,
         data=None,
@@ -22,6 +29,7 @@ class EvalConfig:
         data_location=None,
     ):
         self.experiment_name = experiment_name
+        self.model_to_test = model_to_test
         if dataloader_fn is not None:
             self.data = dataloader_fn(data_location)
         elif isinstance(data, str):
@@ -31,6 +39,11 @@ class EvalConfig:
             self.data = data
         self.executor_fn = executor_fn
         self.language = language
+
+        results_dir = ROOT_DIR / DEFAULT_RESULTS_DIR
+        self.save_dir = results_dir / self.experiment_name / self.model_to_test
+        os.makedirs(self.save_dir, exist_ok=True)
+
 
     def __str__(self):
         pass
@@ -42,6 +55,7 @@ class EvalConfig:
 class EvalConfigBuilder:
     def __init__(self):
         self.experiment_name = None
+        self.model_to_test = None
         self.executor_fn = None
         self.language = None
         self.data = None
@@ -58,6 +72,10 @@ class EvalConfigBuilder:
 
     def with_language(self, language):
         self.language = language
+        return self
+    
+    def with_model_to_test(self, model_to_test):
+        self.model_to_test = model_to_test
         return self
 
     def with_data(self, data):
@@ -81,6 +99,7 @@ class EvalConfigBuilder:
         ), "Data must be set"
         return EvalConfig(
             self.experiment_name,
+            self.model_to_test,
             self.executor_fn,
             self.language,
             self.data,
@@ -96,13 +115,16 @@ def evaluate_solutions(eval_config):
             for index, response in enumerate(eval_config.data)
         ]
     elif isinstance(eval_config.data, dict):
-        eval_data = [
-            Solution.from_response(problem_id, response, eval_config.language)
-            for problem_id, response in eval_config.data.items()
-        ]
+        eval_data = []
+        for problem_id, response in eval_config.data.items():
+            if 'correct' in response:
+                item = response
+            else:
+                item = Solution.from_response(problem_id, response, eval_config.language)
+            eval_data.append(item)
     else:
         raise Exception("Data must be a list or dict")
-    return eval_config.executor_fn(eval_data)
+    return eval_config.executor_fn(eval_data, eval_config.save_dir)
 
 
 def examine_solution(solutions, index):

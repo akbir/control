@@ -12,7 +12,6 @@ class Solution:
             response["metadata"]["test_cases"],
             response["metadata"]["difficulty"],
         )
-
     @classmethod
     def from_executor_output(cls, output):
         return cls(
@@ -58,6 +57,14 @@ class TestResult:
         if isinstance(actual, str):
             actual = actual.strip()
         return str(expected) == str(actual)
+    
+    def to_json(self):
+        return {
+            "input": self.input,
+            "output": self.expected_output,
+            "pred": self.actual_output,
+            "flag": self.correct
+        }
 
     def __str__(self):
         return f"Input: {self.input}\nExpected Output: {self.expected_output}\nActual Output: {self.actual_output}\nCorrect: {self.correct}"
@@ -84,6 +91,17 @@ class ProblemResult:
             [1 for test_result in self.test_results if test_result.correct]
         )
         return f"Problem ID: {self.solution.question_id}\nSolution: {self.solution.solution}\nTest Results:\n\tCorrect: {correct_tests}\n\tTotal: {len(self.test_results)}\n\tAccuracy: {correct_tests/len(self.test_results)}\nOverall Correct: {self.correct}"
+
+    def to_json(self):
+        return {
+            "question_id": self.solution.question_id,
+            "question": self.solution.question,
+            "solution": self.solution.solution,
+            "language": self.solution.language.code,
+            "test_cases": [i.to_json() for i in self.test_results],
+            "difficulty": self.solution.difficulty,
+            "correct": self.correct
+        }
 
     def __repr__(self):
         return self.__str__()
