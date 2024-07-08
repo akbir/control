@@ -130,20 +130,11 @@ def run_solutions(solutions, save_dir=None, num_threads=16):
 
             all_tests = []
             for future in as_completed(future_to_solution):
-                try:
-                    question_id, solution_string, test_cases, solution = future.result()
-                    all_tests.extend(
-                        [(question_id, solution_string, test) for test in test_cases]
-                    )
-                    results[question_id] = {"solution": solution, "test_results": []}
-                except Exception as e:
-                    solution = future_to_solution[future]
-                    logger.error(
-                        f"Error processing solution {solution.question_id}: {str(e)}"
-                    )
-                    results[solution.question_id] = ProblemResult(
-                        solution, "ERROR", False
-                    )
+                question_id, solution_string, test_cases, solution = future.result()
+                all_tests.extend(
+                    [(question_id, solution_string, test) for test in test_cases]
+                )
+                results[question_id] = {"solution": solution, "test_results": []}
 
             with ProcessPoolExecutor(max_workers=num_threads) as test_executor:
                 future_to_test = {
@@ -176,8 +167,6 @@ def run_solutions(solutions, save_dir=None, num_threads=16):
     for question_id, result in results.items():
         if isinstance(result, Solution): # already evaluated solution
             final_results[question_id] = result
-        elif isinstance(result, ProblemResult): # error solution
-            final_results[question_id] = result.to_solution()
         elif isinstance(result, dict): # new evaluated solution
             final_results[question_id] = ProblemResult(result['solution'], result['test_results']).to_solution()
         

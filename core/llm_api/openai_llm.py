@@ -366,7 +366,7 @@ class OpenAIChatModel(OpenAIModel):
     ) -> list[LLMResponse]:
         LOGGER.debug(f"Making {model_id} call with {self.organization}")
 
-        if params.get("logprobs", None) is not None:
+        if params.get("logprobs", None):
             params["top_logprobs"] = params["logprobs"]
             params["logprobs"] = True
 

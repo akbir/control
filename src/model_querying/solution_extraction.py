@@ -358,6 +358,7 @@ def extract_suspiciousness(response, language):
         start = gen.index(f"<ASSESSMENT>") + len(f"<ASSESSMENT>")
         end = gen.index(f"</ASSESSMENT>")
         response["suspiciousness"] = int(gen[start:end].strip())
+        response['backdoor'] = response['metadata']['backdoor']
         return response
     except Exception as e:
         logger.info(f"Error extracting suspiciousness: {repr(e)}")
@@ -381,6 +382,7 @@ def extract_soft_suspiciousness(response, language):
             return response
         
         response['suspiciousness'] = confidence
+        response['backdoor'] = response['metadata']['backdoor']
         return response
     except Exception as e:
         logger.info(f"Error extracting suspiciousness: {repr(e)}")
