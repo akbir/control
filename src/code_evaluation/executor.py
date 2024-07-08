@@ -9,8 +9,9 @@ from tqdm.auto import tqdm
 import types
 import sys
 import os
+import json
 
-from .test_results import TestResult, ProblemResult, RunResult
+from .test_results import TestResult, ProblemResult, RunResult, Solution
 
 logger = logging.getLogger(__name__)
 
@@ -84,8 +85,28 @@ def _run_test(args):
         logger.debug(f"Error creating or running function for solution {question_id}: {str(e)}")
         return TestResult(test['input'], test['output'], 'ERROR')
 
-def run_solutions(solutions, num_threads=16):
+def run_solutions(solutions, save_dir=None, num_threads=16):
     results = {}
+
+    # load caching results
+    if save_dir is not None:
+        for idx, solution in enumerate(solutions):
+            if isinstance(solution, dict): # already load eval results
+                continue
+            save_path = f"{save_dir}/{solution.question_id}.json"
+            if os.path.exists(save_path):
+                with open(save_path) as f:
+                    solutions[idx] = json.load(f)
+
+    # skip those executed solutions
+    filtered_solutions = []
+    for solution in solutions:
+        if isinstance(solution, dict):
+            results[solution['question_id']] = solution
+        else:
+            filtered_solutions.append(solution)
+    solutions = filtered_solutions
+
     with HiddenPrints():
         with ProcessPoolExecutor(max_workers=num_threads) as executor:
             future_to_solution = {executor.submit(_run_result_solution, solution): solution for solution in solutions}
@@ -117,9 +138,17 @@ def run_solutions(solutions, num_threads=16):
     # Process the results
     final_results = {}
     for question_id, result in results.items():
-        if isinstance(result, ProblemResult):
+        if 'correct' in result:
             final_results[question_id] = result
         else:
-            final_results[question_id] = ProblemResult(result['solution'], result['test_results'])
-
-    return RunResult(final_results)
+            # Unify the returning results
+            final_results[question_id] = ProblemResult(result['solution'], result['test_results']).to_json()
+    
+    # save caching results
+    if save_dir is not None:
+        for question_id, solution in final_results.items():
+            save_path = f'{save_dir}/{question_id}.json'
+            with open(save_path, 'w') as f:
+                json.dump(solution, f, indent=2)
+    
+    return final_results
