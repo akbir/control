@@ -105,7 +105,7 @@ def run_solutions(solutions, save_dir=None, num_threads=16):
     # load caching results
     if save_dir is not None:
         for idx, solution in enumerate(solutions):
-            if solution.correct != None: # already have runtime eval results
+            if solution.correct is not None: # already have runtime eval results
                 continue
             save_path = f"{save_dir}/{solution.question_id}.json"
             if os.path.exists(save_path):
