@@ -27,6 +27,9 @@ does the following steps:
 
 import asyncio
 import logging
+import json
+
+from src.tools.path_utils import get_default_results_directory
 
 from src.code_evaluation.executor import run_solutions
 from src.model_querying.prompt_creation import (
@@ -300,10 +303,40 @@ def get_pipeline(use_cache=True, num_problems=None):
 
     return pipeline
 
-if __name__ == '__main__':
-    pipeline = get_pipeline(num_problems=5)
-    results = asyncio.run(pipeline.run())
-    print('total backdoored num = ', sum([i['backdoor'] for i in list(results['select_best_backdoors'].values())]))
+def plot(results):
+    from matplotlib import pyplot as plt
+    x = []
+    y = []
+    normalized_y = []
     for threshold in range(0, 11, 1):
         threshold /= 10
-        print(results[f'calculate_metrics_threshold{threshold}'])
+        eval_result = results[f'calculate_metrics_threshold{threshold}']
+        x.append(eval_result.safety)
+        y.append(eval_result.usefulness)
+        normalized_y.append(eval_result.normalized_usefulness)
+    
+    # plot normalized usefulness vs safety
+    plt.subplot(1, 2, 1)
+    plt.scatter(x, normalized_y, label='trusted monitoring')
+    plt.xlabel("Safety")
+    plt.ylabel("Usefulness")
+    plt.xlim([0, 1])
+    plt.ylim([0, 1])
+
+    plt.subplot(1, 2, 2)
+    plt.scatter(x, y, label='trusted monitoring')
+    plt.xlabel("Safety")
+    plt.ylabel("Usefulness")
+    plt.xlim([0, 1])
+    plt.ylim([0, 0.5])
+
+    plt.tight_layout()
+    plt.savefig(f"{get_default_results_directory()}/trusted_monitoring/fig.png", dpi=1000)
+    with open(f"{get_default_results_directory()}/data.json", 'w') as f:
+        json.dump({"safety": x, "usefulness": y, "normalized_usefulness": normalized_y}, f, indent=2)
+
+if __name__ == '__main__':
+    pipeline = get_pipeline(num_problems=200)
+    results = asyncio.run(pipeline.run())
+    print('total backdoored num = ', sum([i['backdoor'] for i in list(results['select_best_backdoors'].values())]))
+    plot(results)

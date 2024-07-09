@@ -12,7 +12,6 @@ import json
 from src.code_evaluation.test_results import Solution
 import src.tools.path_utils as path_utils
 
-ROOT_DIR = path_utils.get_root_directory()
 DEFAULT_RESULTS_DIR = path_utils.get_default_results_directory()
 
 
@@ -40,7 +39,7 @@ class EvalConfig:
         self.executor_fn = executor_fn
         self.language = language
 
-        results_dir = ROOT_DIR / DEFAULT_RESULTS_DIR
+        results_dir = DEFAULT_RESULTS_DIR
         self.save_dir = results_dir / self.experiment_name / self.model_to_test
         os.makedirs(self.save_dir, exist_ok=True)
 

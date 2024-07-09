@@ -156,6 +156,8 @@ class QueryConfigBuilder:
     
     def with_logprobs(self, logprobs):
         self.logprobs = logprobs
+        if logprobs is not None:
+            assert 'claude' not in self.model_to_test
         return self
 
     def build(self):
