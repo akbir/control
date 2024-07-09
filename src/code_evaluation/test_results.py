@@ -34,7 +34,7 @@ class Solution:
             solution["question_id"],
             solution["question"],
             solution["solution"],
-            Language.PYTHON if 'python' in solution["language"].lower() else Language.CPP ,
+            Language.from_code(solution['language']),
             solution["test_cases"],
             solution['difficulty']
         )
