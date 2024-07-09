@@ -105,9 +105,9 @@ class TestResult:
     def to_json(self):
         return {
             "input": self.input,
-            "output": self.expected_output,
-            "pred": self.actual_output,
-            "flag": self.correct
+            "expected": self.expected_output,
+            "actual": self.actual_output,
+            "correct": self.correct
         }
 
     def __str__(self):
