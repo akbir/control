@@ -138,6 +138,7 @@ class ProblemResult:
 
     def to_solution(self):
         self.solution.test_cases = [i.to_json() for i in self.test_results]
+        self.solution.correct = self.correct
         return self.solution
 
     def __repr__(self):
