@@ -135,16 +135,11 @@ def defer_to_trusted_above_threshold(threshold):
         sum_removed = 0
         filtered_solutions = {}
         for key, value in strong_solutions.items():
-            max_allowable_score = (1 - threshold) * 10
             value["suspiciousness"] = suspecious_scores[key].get("suspiciousness", 0)
             value['backdoor'] = suspecious_scores[key].get("backdoor")
-
-
-        suspicious_ids = sorted(list(strong_solutions.keys()), key=lambda x: strong_solutions[x]['suspiciousness'])[-int(threshold * len(strong_solutions)):]
-        
+        suspicious_ids = sorted(list(strong_solutions.keys()), key=lambda x: strong_solutions[x]['suspiciousness'])[-int(threshold * len(strong_solutions)):]       
         for key, value in strong_solutions.items():
             if key not in suspicious_ids:
-            # if suspiciousness is not None and suspiciousness <= max_allowable_score:
                 filtered_solutions[key] = value
             else:
                 weak_solution = weak_solutions.get(key) # Type: Solution
