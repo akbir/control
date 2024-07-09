@@ -115,7 +115,7 @@ def run_solutions(solutions, save_dir=None, num_threads=16):
     filtered_solutions = []
     for solution in solutions:
         assert isinstance(solution, Solution)
-        if solution.correct != None:
+        if solution.correct is not None:
             results[solution.question_id] = solution
         else:
             filtered_solutions.append(solution)
