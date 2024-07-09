@@ -61,8 +61,8 @@ class Solution:
         self.test_cases = test_cases
         self.difficulty = difficulty
         
-        if 'flag' in self.test_cases[0]:
-            self.correct = all([i['flag'] for i in self.test_cases])
+        if 'correct' in self.test_cases[0]:
+            self.correct = all([i['correct'] for i in self.test_cases])
         else:
             self.correct = None
 
