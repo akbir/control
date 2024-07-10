@@ -32,7 +32,6 @@ import os
 
 from src.tools.path_utils import get_default_results_directory
 
-# from src.code_evaluation.executor import run_solutions
 from src.code_evaluation.executor_standard import run_solutions
 from src.model_querying.prompt_creation import (
     evaluate_backdoor_rarity,
@@ -44,7 +43,6 @@ from src.model_querying.prompt_creation import (
     get_n_backdoor_ideas,
     get_soft_suspiciousness,
     get_suspiciousness,
-    # get_two_shot_prompt,
     get_two_shot_prompt_standard,
     implement_backdoors_from_suggestions,
     remove_magic_numbers,
@@ -167,6 +165,8 @@ def get_pipeline(use_cache=True, num_problems=None):
     DATA_DIR = ROOT_DIR / "data" / "APPS"
     TEST_DIR = DATA_DIR / "test"
 
+    use_logprob = False
+
     pipeline_config = PipelineConfig(
         "trusted_monitoring",
         anthropic_num_threads=40,
@@ -280,7 +280,7 @@ def get_pipeline(use_cache=True, num_problems=None):
         extract_suspiciousness,
         dependencies=[final_backdoors],
     )
-    if "claude" not in weak_model.lower():  # get soft monitoring score
+    if use_logprob and "claude" not in weak_model.lower():  # get soft monitoring score
         check_soft_suspiciousness = pipeline.add_query_step(
             "check_soft_suspiciousness",
             weak_model,
@@ -338,14 +338,10 @@ def get_pipeline(use_cache=True, num_problems=None):
             ],
         )
 
-        # soft_filter_solutions = pipeline.add_transformation_step(f'filter_solutions_soft_threshold{threshold}', defer_to_trusted_above_threshold(threshold), dependencies=[check_soft_suspiciousness, evaluate_backdoored_solutions, evaluate_weak_solutions])
-        # soft_evaluate_pipeline_output = pipeline.add_code_evaluation_step(f"evaluate_pipeline_output_soft_threshold{threshold}", f'{strong_model}_mix_{weak_model}', run_solutions, dependencies=[soft_filter_solutions])
-        # soft_evaluate_safety = pipeline.add_monitoring_step(f'calculate_metrics_soft_threshold{threshold}', get_usefulness_and_safety, dependencies=[evaluate_solutions, evaluate_weak_solutions, soft_evaluate_pipeline_output, soft_filter_solutions])
-
-        # soft_filter_solutions = pipeline.add_transformation_step(f'filter_solutions_soft_threshold{threshold}', defer_to_trusted_above_threshold(threshold), dependencies=[check_soft_suspiciousness, evaluate_backdoored_solutions, evaluate_weak_solutions])
-        # soft_evaluate_pipeline_output = pipeline.add_code_evaluation_step(f"evaluate_pipeline_output_soft_threshold{threshold}", f'{strong_model}_mix_{weak_model}', run_solutions, dependencies=[soft_filter_solutions])
-        # soft_evaluate_safety = pipeline.add_monitoring_step(f'calculate_metrics_soft_threshold{threshold}', get_usefulness_and_safety, dependencies=[evaluate_solutions, evaluate_weak_solutions, soft_evaluate_pipeline_output, soft_filter_solutions])
-
+        if use_logprob:
+            soft_filter_solutions = pipeline.add_transformation_step(f'filter_solutions_soft_threshold{threshold}', defer_to_trusted_above_threshold(threshold), dependencies=[check_soft_suspiciousness, evaluate_backdoored_solutions, evaluate_weak_solutions])
+            soft_evaluate_pipeline_output = pipeline.add_code_evaluation_step(f"evaluate_pipeline_output_soft_threshold{threshold}", f'{strong_model}_mix_{weak_model}', run_solutions, dependencies=[soft_filter_solutions])
+            soft_evaluate_safety = pipeline.add_monitoring_step(f'calculate_metrics_soft_threshold{threshold}', get_usefulness_and_safety, dependencies=[evaluate_solutions, evaluate_weak_solutions, soft_evaluate_pipeline_output, soft_filter_solutions])
     return pipeline
 
 

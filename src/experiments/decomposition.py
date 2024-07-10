@@ -31,7 +31,7 @@ from src.code_evaluation.executor_standard import run_solutions
 from src.pipeline.pipeline import PipelineConfig, Pipeline
 from src.monitoring.evaluation import get_usefulness_and_safety
 from src.pipeline.pipeline import Pipeline, PipelineConfig
-from src.tools.dataloaders import load_problems
+from src.tools.dataloaders import load_problems, load_problem_subset
 from src.tools.path_utils import get_root_directory
 
 logger = logging.getLogger(__name__)
@@ -91,7 +91,7 @@ def get_pipeline_delegate(use_cache=True, num_problems=None):
     pipeline = Pipeline(pipeline_config)
     load_data = pipeline.add_load_data_step(
         "load_problems",
-        lambda x: load_problems(dir=x, subset="INTERVIEW", num_problems=num_problems),
+        load_problem_subset("INTERVIEW"),
         TEST_DIR,
     )
 
@@ -160,7 +160,7 @@ def get_pipeline_hint(use_cache=True, num_problems=None):
     )
 
     pipeline = Pipeline(pipeline_config)
-    load_data = pipeline.add_load_data_step('load_problems', lambda x: load_problems(dir=x, subset='INTERVIEW', num_problems=num_problems), TEST_DIR)
+    load_data = pipeline.add_load_data_step('load_problems', load_problem_subset("INTERVIEW"), TEST_DIR)
 
     ################# Red team ######################
     generate_decompositions = pipeline.add_query_step(
