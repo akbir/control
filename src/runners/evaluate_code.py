@@ -6,14 +6,13 @@ __all__ = [
     "print_eval",
 ]
 
-import os
 import json
+import os
 
-from src.code_evaluation.test_results import Solution
 import src.tools.path_utils as path_utils
+from src.code_evaluation.test_results import Solution
 
 DEFAULT_RESULTS_DIR = path_utils.get_default_results_directory()
-
 
 
 class EvalConfig:
@@ -43,7 +42,6 @@ class EvalConfig:
         self.save_dir = results_dir / self.experiment_name / self.model_to_test
         os.makedirs(self.save_dir, exist_ok=True)
 
-
     def __str__(self):
         pass
 
@@ -72,7 +70,7 @@ class EvalConfigBuilder:
     def with_language(self, language):
         self.language = language
         return self
-    
+
     def with_model_to_test(self, model_to_test):
         self.model_to_test = model_to_test
         return self
@@ -138,16 +136,20 @@ def print_eval(results):
     correct_tests = 0
     total_tests = 0
     correct_problems = 0
-    total_problems = len(results.problem_results)
-    for problem_id, problem_result in results.problem_results.items():
+    total_problems = len(results.keys())
+    for problem_id, problem_result in results.items():
         correct_tests_local = sum(
-            [1 for test_result in problem_result.test_results if test_result.correct]
+            [
+                1
+                for test_result in problem_result["test_cases"]
+                if test_result["correct"]
+            ]
         )
-        total_tests_local = len(problem_result.test_results)
+        total_tests_local = len(problem_result["test_cases"])
         # print(f"Problem ID: {problem_id}\nTest Results:\n\tCorrect: {correct_tests_local}\n\tTotal: {total_tests_local}\n\tAccuracy: {(correct_tests_local * 100.)/total_tests_local}\nOverall Correct: {problem_result.correct}")
         correct_tests += correct_tests_local
         total_tests += total_tests_local
-        if problem_result.correct:
+        if problem_result["correct"]:
             correct_problems += 1
     print(
         f"Number of Problems: {total_problems}\nNumber Correct: {correct_problems}\nAccuracy: {(correct_problems * 100.)/total_problems}\nNumber of Tests: {total_tests}\nNumber Correct: {correct_tests}\nAccuracy: {(correct_tests * 100.)/total_tests}"
