@@ -93,6 +93,8 @@ class Pipeline:
         use_cache=None,
         temperature=None,
         logprobs=None,
+        max_tokens=4096,
+        bon=1,
     ):
         query_config_builder = (
             QueryConfigBuilder()
@@ -100,8 +102,10 @@ class Pipeline:
             .with_prompt_fn(lambda x: prompt_fn(x, self.config.language))
             .with_parse_fn(lambda x: parse_fn(x, self.config.language))
             .with_num_problems(self.config.num_problems)
+            .with_max_tokens(max_tokens)
             .with_temperature(temperature)
             .with_logprobs(logprobs)
+            .with_bon(bon)
         )
 
         async def call(data, use_cache, index):
@@ -207,5 +211,5 @@ class Pipeline:
             )
             self.results[task.name] = await task.execute(self.results)
             logger.info(f"Finished step {task.index}: {task.name}")
-        logger.info("Run complete!! Nice!!")
+        logger.info("Run complete!! Nice!! 🚀🚀")
         return self.results

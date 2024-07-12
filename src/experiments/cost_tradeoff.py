@@ -72,10 +72,6 @@ from src.tools.dataloaders import load_problem_subset, load_problems
 from src.tools.path_utils import get_default_results_directory, get_root_directory
 
 logger = logging.getLogger(__name__)
-EXP_NAME = "tradeoff_50_1"
-RED_N = 50
-BLUE_N = 1
-RED_IDEA_TEMPERATURE = 0.6
 
 
 def separate_suggestions(data):
@@ -88,7 +84,7 @@ def separate_suggestions(data):
     return separated_data
 
 
-def join_backdoors(data):
+def join_by_problem(data):
     joined_data = {}
     for key, value in data.items():
         problem_id = key.split("-")[0]
@@ -98,14 +94,15 @@ def join_backdoors(data):
     return joined_data
 
 
-def join_suspiciousness(response):
-    joined_data = {}
-    for key, value in response.items():
-        problem_id = key.split("-")[0]
-        if problem_id not in joined_data:
-            joined_data[problem_id] = []
-        joined_data[problem_id].append(value)
-    return joined_data
+def average_suspiciousness(data, joined_data):
+    for key, value in data.items():
+        scores = joined_data.get(key)
+        if scores is None or len(scores) == 0:
+            combined = value
+        else:
+            combined = sum([i["suspiciousness"] for i in scores]) / len(scores)
+        data[key]["suspiciousness"] = combined
+    return data
 
 
 def select_best_backdoors(original_data, backdoored_data):
@@ -149,6 +146,7 @@ def defer_to_trusted_above_threshold(threshold):
     def defer_to_trusted(suspecious_scores, strong_solutions, weak_solutions):
         sum_removed = 0
         filtered_solutions = {}
+
         for key, value in strong_solutions.items():
             value["suspiciousness"] = suspecious_scores[key].get("suspiciousness", 0)
             value["backdoor"] = suspecious_scores[key].get("backdoor")
@@ -176,7 +174,15 @@ def defer_to_trusted_above_threshold(threshold):
 
 
 def get_pipeline(
-    strong_model, weak_model, name=None, use_cache=True, num_problems=None
+    strong_model,
+    weak_model,
+    red_n,
+    blue_n,
+    red_idea_temp,
+    blue_monitor_temp,
+    name=None,
+    use_cache=True,
+    num_problems=None,
 ):
     ROOT_DIR = get_root_directory()
     DATA_DIR = ROOT_DIR / "data" / "APPS"
@@ -189,7 +195,7 @@ def get_pipeline(
         raise ValueError("Weak model must be set")
 
     pipeline_config = PipelineConfig(
-        EXP_NAME,
+        name,
         anthropic_num_threads=40,
         openai_fraction_rate_limit=0.99,
         num_problems=num_problems,
@@ -214,10 +220,10 @@ def get_pipeline(
     generate_backdoor_ideas = pipeline.add_query_step(
         "generate_backdoor_ideas",
         strong_model,
-        get_n_backdoor_ideas(RED_N),
+        get_n_backdoor_ideas(red_n),
         extract_backdoor_ideas,
         dependencies=[get_solutions],
-        temperature=RED_IDEA_TEMPERATURE,
+        temperature=red_idea_temp,
     )
     improve_backdoor_rarity = pipeline.add_query_step(
         "improve_backdoor_rarity",
@@ -278,13 +284,13 @@ def get_pipeline(
         extract_exploit,
         dependencies=[evaluate_backdoor_step_two],
     )
-    join_by_problem = pipeline.add_transformation_step(
-        "join_by_problem", join_backdoors, dependencies=[generate_exploit_input]
+    join_exploits = pipeline.add_transformation_step(
+        "join_exploits", join_by_problem, dependencies=[generate_exploit_input]
     )
     final_backdoors = pipeline.add_transformation_step(
         "select_best_backdoors",
         select_best_backdoors,
-        dependencies=[get_solutions, join_by_problem],
+        dependencies=[get_solutions, join_exploits],
     )
 
     ################# Blue team ######################
@@ -295,32 +301,43 @@ def get_pipeline(
         extract_solution_in_block,
         dependencies=[load_data],
     )
-    check_suspiciousness = pipeline.add_query_step(
-        "check_suspiciousness",
-        weak_model,
-        get_suspiciousness,
-        extract_suspiciousness,
-        dependencies=[final_backdoors],
-    )
-
-    if BLUE_N > 1:
-        combined_suspiciousness = pipeline.add_transformation_step(
-            "combine_suspiciousness",
-            join_suspiciousness,
-            dependencies=[check_suspiciousness],
-        )
-    else:
-        combined_suspiciousness = check_suspiciousness
 
     if "claude" not in weak_model.lower():  # get soft monitoring score
-        check_soft_suspiciousness = pipeline.add_query_step(
+        check_suspiciousness = pipeline.add_query_step(
             "check_soft_suspiciousness",
             weak_model,
             get_soft_suspiciousness,
             extract_soft_suspiciousness,
             dependencies=[final_backdoors],
             logprobs=5,
+            bon=blue_n,
+            temperature=blue_monitor_temp,
+            max_tokens=1,
         )
+    else:
+        check_suspiciousness = pipeline.add_query_step(
+            "check_suspiciousness",
+            weak_model,
+            get_suspiciousness,
+            extract_suspiciousness,
+            dependencies=[final_backdoors],
+            bon=blue_n,
+            temperature=blue_monitor_temp,
+        )
+
+    if blue_n > 1:
+        join_monitors = pipeline.add_transformation_step(
+            "join_monitors",
+            join_by_problem,
+            dependencies=[check_suspiciousness],
+        )
+        combined_suspiciousness = pipeline.add_transformation_step(
+            "average_suspiciousness",
+            average_suspiciousness,
+            dependencies=[final_backdoors, join_monitors],
+        )
+    else:
+        combined_suspiciousness = check_suspiciousness
 
     ################# Evaluation ######################
     # Baseline strong
@@ -372,7 +389,7 @@ def get_pipeline(
     return pipeline
 
 
-def plot(results):
+def plot(results, name):
     from matplotlib import pyplot as plt
 
     x = []
@@ -403,7 +420,7 @@ def plot(results):
     plt.legend()
 
     plt.tight_layout()
-    save_dir = f"{get_default_results_directory()}/{EXP_NAME}/merged_results/{strong_model}+{weak_model}"
+    save_dir = f"{get_default_results_directory()}/{name}/merged_results/{strong_model}+{weak_model}"
     os.makedirs(save_dir, exist_ok=True)
     plt.savefig(f"{save_dir}/fig.png", dpi=1000)
 
@@ -419,12 +436,21 @@ if __name__ == "__main__":
     strong_model = "gpt-4-0125-preview"
     weak_model = "gpt-3.5-turbo-1106"
     setup_logging("DEBUG")
+    EXP_NAME = "tradeoff_5_32"
     pipeline = get_pipeline(
-        num_problems=5, strong_model=strong_model, weak_model=weak_model
+        name=EXP_NAME,
+        num_problems=2,
+        strong_model=strong_model,
+        weak_model=weak_model,
+        red_n=5,
+        blue_n=32,
+        red_idea_temp=0.6,
+        blue_monitor_temp=0.4,
+        use_cache=True,
     )
     results = asyncio.run(pipeline.run())
     print(
         "total backdoored num = ",
         sum([i["backdoor"] for i in list(results["select_best_backdoors"].values())]),
     )
-    plot(results)
+    plot(results, EXP_NAME)
