@@ -183,7 +183,7 @@ def _get_prompts(problems, prompt_fn):
 
 
 ## QueryModel class
-async def query_model(model_api, query_config):
+async def query_model(model_api, file_sem, query_config):
     data = query_config.get_data()
     prompts = _get_prompts(data, query_config.prompt_fn)
     results_dir = (
@@ -217,6 +217,7 @@ async def query_model(model_api, query_config):
             metadata=data[data_id]["metadata"],
             parse_fn=query_config.parse_fn,
             save_path=f"{save_dir}/{data_id}.json",
+            file_sem=file_sem,
         )
         for data_id in prompts.keys()
     ]
