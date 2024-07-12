@@ -50,7 +50,7 @@ class PipelineConfig:
         use_cache=True,
         language=Language.PYTHON,
         num_problems=None,
-        num_open_files=1000,
+        num_open_files=1000000,
         organization="NYU_ORG",
         print_prompt_and_response=False,
     ):
@@ -154,9 +154,8 @@ class Pipeline:
     def add_transformation_step(self, name, transformation_fn, dependencies=[]):
         async def call(*args, use_cache, index):
             output = transformation_fn(*args)
-            if not output:
-                async with self.file_sem:
-                    save_to_cache(output, f"{self.config.name}/{index:02d}-{name}")
+            async with self.file_sem:
+                save_to_cache(output, f"{self.config.name}/{index:02d}-{name}")
             return output
 
         step = Task(name, call, None, dependencies)
@@ -167,7 +166,7 @@ class Pipeline:
         async def call(*args, use_cache, index):
             output = eval_fn(*args)
             cache_obj = {"summary": output.to_dict()}
-            with self.file_sem:
+            async with self.file_sem:
                 save_to_cache(cache_obj, f"{self.config.name}/{index:02d}-{name}")
             return output
 

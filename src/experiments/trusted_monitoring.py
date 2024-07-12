@@ -294,4 +294,4 @@ if __name__ == "__main__":
         "total backdoored num = ",
         sum([i["backdoor"] for i in list(results["select_best_backdoors"].values())]),
     )
-    plot(results)
+    plot(results, "trusted_monitoring", strong_model, weak_model)
