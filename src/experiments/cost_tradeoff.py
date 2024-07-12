@@ -98,6 +98,16 @@ def join_backdoors(data):
     return joined_data
 
 
+def join_suspiciousness(response):
+    joined_data = {}
+    for key, value in response.items():
+        problem_id = key.split("-")[0]
+        if problem_id not in joined_data:
+            joined_data[problem_id] = []
+        joined_data[problem_id].append(value)
+    return joined_data
+
+
 def select_best_backdoors(original_data, backdoored_data):
     selected_data = {}
     for key, value in original_data.items():
@@ -292,6 +302,16 @@ def get_pipeline(
         extract_suspiciousness,
         dependencies=[final_backdoors],
     )
+
+    if BLUE_N > 1:
+        combined_suspiciousness = pipeline.add_transformation_step(
+            "combine_suspiciousness",
+            join_suspiciousness,
+            dependencies=[check_suspiciousness],
+        )
+    else:
+        combined_suspiciousness = check_suspiciousness
+
     if "claude" not in weak_model.lower():  # get soft monitoring score
         check_soft_suspiciousness = pipeline.add_query_step(
             "check_soft_suspiciousness",
@@ -327,7 +347,7 @@ def get_pipeline(
             f"filter_solutions_threshold{threshold}",
             defer_to_trusted_above_threshold(threshold),
             dependencies=[
-                check_suspiciousness,
+                combined_suspiciousness,
                 evaluate_backdoored_solutions,
                 evaluate_weak_solutions,
             ],
@@ -400,7 +420,7 @@ if __name__ == "__main__":
     weak_model = "gpt-3.5-turbo-1106"
     setup_logging("DEBUG")
     pipeline = get_pipeline(
-        num_problems=1, strong_model=strong_model, weak_model=weak_model
+        num_problems=5, strong_model=strong_model, weak_model=weak_model
     )
     results = asyncio.run(pipeline.run())
     print(

@@ -13,7 +13,6 @@ This experiment is a simple example of how to use the framework. It does the fol
 """
 
 import asyncio
-import logging
 
 from core.utils import setup_logging
 from src.code_evaluation.executor import run_solutions
