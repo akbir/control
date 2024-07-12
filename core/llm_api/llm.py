@@ -42,8 +42,6 @@ class ModelAPI:
     model_timings: dict[str, list[float]] = attrs.field(init=False, default={})
     model_wait_times: dict[str, list[float]] = attrs.field(init=False, default={})
 
-    file_sem: asyncio.Semaphore = attrs.field(init=False)
-
     def __attrs_post_init__(self):
         secrets = load_secrets()
         if self.organization is None:
