@@ -147,6 +147,7 @@ class Pipeline:
         self, name, transformation_fn, use_cache=None, dependencies=[]
     ):
         async def call(*args, use_cache, index):
+            output = None
             if use_cache:
                 output = read_from_cache(f"{self.config.name}/{index:02d}-{name}")
 
