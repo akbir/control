@@ -146,8 +146,7 @@ class Pipeline:
     def add_transformation_step(self, name, transformation_fn, dependencies=[]):
         async def call(*args, use_cache, index):
             output = transformation_fn(*args)
-            if not output:
-                save_to_cache(output, f"{self.config.name}/{index:02d}-{name}")
+            save_to_cache(output, f"{self.config.name}/{index:02d}-{name}")
             return output
 
         step = Task(name, call, None, dependencies)
