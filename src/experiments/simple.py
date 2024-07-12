@@ -34,13 +34,16 @@ from src.tools.dataloaders import load_problems_from_json
 from src.tools.path_utils import get_root_directory
 
 
-def get_pipeline(name=None, use_cache=True, num_problems=None):
+def get_pipeline(
+    strong_model, weak_model, name=None, use_cache=True, num_problems=None
+):
     ROOT_DIR = get_root_directory()
     DATA_DIR = ROOT_DIR / "data" / "APPS"
-    strong_model = "claude-3-5-sonnet-20240620"
-    weak_model = "gpt-3.5-turbo-1106"
     TEST_SUBSET_FILE = DATA_DIR / "test_subset.json"
 
+    assert (
+        strong_model is not None and weak_model is not None
+    ), "Both strong and weak models must be provided"
     if name is None:
         pipeline_name = "simple_monitoring"
     else:
@@ -102,7 +105,11 @@ def get_pipeline(name=None, use_cache=True, num_problems=None):
 
 
 if __name__ == "__main__":
-    pipeline = get_pipeline(num_problems=1)
+    pipeline = get_pipeline(
+        strong_model="gpt-4-0125-preview",
+        weak_model="gpt-3.5-turbo-1106",
+        num_problems=1,
+    )
     results = asyncio.run(pipeline.run())
     print_eval(results["evaluate_baseline"])
     print_eval(results["evaluate_backdoors"])

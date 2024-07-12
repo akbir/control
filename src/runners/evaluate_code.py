@@ -22,6 +22,7 @@ class EvalConfig:
         model_to_test,
         executor_fn,
         language,
+        use_cache=True,
         data=None,
         dataloader_fn=None,
         data_location=None,
@@ -37,10 +38,7 @@ class EvalConfig:
             self.data = data
         self.executor_fn = executor_fn
         self.language = language
-
-        results_dir = DEFAULT_RESULTS_DIR
-        self.save_dir = results_dir / self.experiment_name / self.model_to_test
-        os.makedirs(self.save_dir, exist_ok=True)
+        self.use_cache = use_cache
 
     def __str__(self):
         pass
@@ -56,6 +54,7 @@ class EvalConfigBuilder:
         self.executor_fn = None
         self.language = None
         self.data = None
+        self.use_cache = None
         self.dataloader_fn = None
         self.data_location = None
 
@@ -73,6 +72,10 @@ class EvalConfigBuilder:
 
     def with_model_to_test(self, model_to_test):
         self.model_to_test = model_to_test
+        return self
+
+    def with_use_cache(self, use_cache):
+        self.use_cache = use_cache
         return self
 
     def with_data(self, data):
@@ -99,6 +102,7 @@ class EvalConfigBuilder:
             self.model_to_test,
             self.executor_fn,
             self.language,
+            self.use_cache,
             self.data,
             self.dataloader_fn,
             self.data_location,
@@ -118,7 +122,11 @@ def evaluate_solutions(eval_config):
             eval_data.append(item)
     else:
         raise Exception("Data must be a list or dict")
-    return eval_config.executor_fn(eval_data, eval_config.save_dir)
+
+    results_dir = DEFAULT_RESULTS_DIR
+    save_dir = results_dir / eval_config.experiment_name / eval_config.model_to_test
+    os.makedirs(save_dir, exist_ok=True)
+    return eval_config.executor_fn(eval_data, save_dir, use_cache=eval_config.use_cache)
 
 
 def examine_solution(solutions, index):
