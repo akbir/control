@@ -46,8 +46,10 @@ from src.model_querying.prompt_creation import (
     generate_simple_test_cases,
     get_backdoor_rarity_improvements,
     get_backdoor_subtlety_improvements,
+    get_monitoring_chain_of_thought,
     get_n_backdoor_ideas,
     get_soft_suspiciousness,
+    get_soft_suspiciousness_with_cot,
     get_suspiciousness,
     get_two_shot_prompt,
     implement_backdoors_from_suggestions,
@@ -61,6 +63,7 @@ from src.model_querying.solution_extraction import (
     extract_exploit,
     extract_good_suggestions,
     extract_improved_backdoor_suggestions,
+    extract_monitoring_chain_of_thought,
     extract_soft_suspiciousness,
     extract_solution_in_block,
     extract_suspiciousness,
@@ -102,6 +105,7 @@ def average_suspiciousness(data, joined_data):
         else:
             combined = sum([i["suspiciousness"] for i in scores]) / len(scores)
         data[key]["suspiciousness"] = combined
+        data[key]["monitor_scores"] = scores
     return data
 
 
@@ -303,15 +307,23 @@ def get_pipeline(
     )
 
     if "claude" not in weak_model.lower():  # get soft monitoring score
+        monitor_thinking = pipeline.add_query_step(
+            "monitor_thinking",
+            weak_model,
+            get_monitoring_chain_of_thought,
+            extract_monitoring_chain_of_thought,
+            dependencies=[final_backdoors],
+            bon=blue_n,
+            temperature=blue_monitor_temp,
+        )
         check_suspiciousness = pipeline.add_query_step(
             "check_soft_suspiciousness",
             weak_model,
-            get_soft_suspiciousness,
+            get_soft_suspiciousness_with_cot,
             extract_soft_suspiciousness,
-            dependencies=[final_backdoors],
+            dependencies=[monitor_thinking],
             logprobs=5,
-            bon=blue_n,
-            temperature=blue_monitor_temp,
+            bon=1,
             max_tokens=1,
         )
     else:
@@ -433,19 +445,22 @@ def plot(results, name):
 
 
 if __name__ == "__main__":
+    BON_RED = 5
+    BON_BLUE = 1
+    EXP_NAME = f"tradeoff_{BON_RED}_{BON_BLUE}"
     strong_model = "gpt-4-0125-preview"
     weak_model = "gpt-3.5-turbo-1106"
-    setup_logging("DEBUG")
-    EXP_NAME = "tradeoff_5_32"
+
+    setup_logging("info")
     pipeline = get_pipeline(
         name=EXP_NAME,
-        num_problems=2,
+        num_problems=2000,
         strong_model=strong_model,
         weak_model=weak_model,
-        red_n=5,
-        blue_n=32,
+        red_n=BON_RED,
+        blue_n=BON_BLUE,
         red_idea_temp=0.6,
-        blue_monitor_temp=0.4,
+        blue_monitor_temp=0.2,
         use_cache=True,
     )
     results = asyncio.run(pipeline.run())
