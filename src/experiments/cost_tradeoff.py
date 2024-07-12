@@ -451,7 +451,7 @@ if __name__ == "__main__":
     strong_model = "gpt-4-0125-preview"
     weak_model = "gpt-3.5-turbo-1106"
 
-    setup_logging("info")
+    setup_logging("debug")
     pipeline = get_pipeline(
         name=EXP_NAME,
         num_problems=2000,
