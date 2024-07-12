@@ -229,8 +229,12 @@ def get_pipeline(
         run_solutions,
         dependencies=[final_backdoors],
     )
-    evaluate_solutions = pipeline.add_code_evaluation_step(
-        "evaluate_baseline", strong_model, run_solutions, dependencies=[get_solutions]
+    evaluate_baseline = pipeline.add_code_evaluation_step(
+        "evaluate_baseline",
+        strong_model,
+        run_solutions,
+        dependencies=[get_solutions],
+        use_cache=False,
     )
     # Baseline weak
     evaluate_weak_solutions = pipeline.add_code_evaluation_step(
@@ -270,7 +274,7 @@ def get_pipeline(
             calculate_metrics_step_name,
             get_usefulness_and_safety,
             dependencies=[
-                evaluate_solutions,
+                evaluate_baseline,
                 evaluate_weak_solutions,
                 evaluate_pipeline_output,
                 filter_solutions,

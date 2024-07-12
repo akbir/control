@@ -146,11 +146,12 @@ class Pipeline:
     def add_transformation_step(
         self, name, transformation_fn, use_cache=None, dependencies=[]
     ):
-        async def call(data, use_cache, index):
+        async def call(*args, use_cache, index):
             if use_cache:
                 output = read_from_cache(f"{self.config.name}/{index:02d}-{name}")
-            else:
-                output = transformation_fn(data)
+
+            if not output:
+                output = transformation_fn(*args)
                 save_to_cache(output, f"{self.config.name}/{index:02d}-{name}")
             return output
 

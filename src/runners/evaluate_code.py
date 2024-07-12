@@ -123,13 +123,10 @@ def evaluate_solutions(eval_config):
     else:
         raise Exception("Data must be a list or dict")
 
-    if eval_config.use_cache:
-        results_dir = DEFAULT_RESULTS_DIR
-        save_dir = results_dir / eval_config.experiment_name / eval_config.model_to_test
-        os.makedirs(save_dir, exist_ok=True)
-    else:
-        save_dir = None
-    return eval_config.executor_fn(eval_data, save_dir)
+    results_dir = DEFAULT_RESULTS_DIR
+    save_dir = results_dir / eval_config.experiment_name / eval_config.model_to_test
+    os.makedirs(save_dir, exist_ok=True)
+    return eval_config.executor_fn(eval_data, save_dir, use_cache=eval_config.use_cache)
 
 
 def examine_solution(solutions, index):
