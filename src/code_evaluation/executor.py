@@ -79,11 +79,6 @@ def _run_test_with_timeout(question_id, solution_function, test, timeout=2):
                 process.kill()
 
 
-def _run_result_solution(solution):
-    logger.debug(f"Starting process for solution {solution.question_id}")
-    return solution.question_id, solution.solution, solution.test_cases, solution
-
-
 def _run_test(args):
     question_id, solution_string, test = args
     try:
@@ -131,7 +126,7 @@ def run_solutions(solutions, save_dir=None, use_cache=False, num_threads=16):
     with HiddenPrints():
         with ProcessPoolExecutor(max_workers=num_threads) as test_executor:
             future_to_test = {
-                test_executor.submit(_run_test_with_timeout, test_args): test_args
+                test_executor.submit(_run_test, test_args): test_args
                 for test_args in all_tests
             }
 

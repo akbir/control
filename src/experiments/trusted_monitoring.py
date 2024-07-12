@@ -234,7 +234,6 @@ def get_pipeline(
         strong_model,
         run_solutions,
         dependencies=[get_solutions],
-        use_cache=False,
     )
     # Baseline weak
     evaluate_weak_solutions = pipeline.add_code_evaluation_step(
