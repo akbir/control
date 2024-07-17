@@ -78,11 +78,13 @@ class Pipeline:
         )
         self.file_sem = asyncio.BoundedSemaphore(self.config.num_open_files)
 
-    def add_load_data_step(self, name, dataloader_fn, data_location, dependencies=[]):
+    def add_load_data_step(
+        self, name, dataloader_fn, data_location, dependencies=[], use_cache=None
+    ):
         def call(*args, use_cache, index):
             return dataloader_fn(data_location, num_problems=self.config.num_problems)
 
-        task = Task(name, call, True, dependencies)
+        task = Task(name, call, use_cache, dependencies)
         self.steps.append(task)
         return task
 
@@ -151,14 +153,16 @@ class Pipeline:
         self.steps.append(step)
         return step
 
-    def add_transformation_step(self, name, transformation_fn, dependencies=[]):
+    def add_transformation_step(
+        self, name, transformation_fn, dependencies=[], use_cache=None
+    ):
         async def call(*args, use_cache, index):
             output = transformation_fn(*args)
             async with self.file_sem:
                 save_to_cache(output, f"{self.config.name}/{index:02d}-{name}")
             return output
 
-        step = Task(name, call, None, dependencies)
+        step = Task(name, call, use_cache, dependencies)
         self.steps.append(step)
         return step
 
