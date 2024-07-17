@@ -29,7 +29,7 @@ def plot(results, name, strong_model, weak_model):
     plt.subplot(1, 2, 2)
     plt.scatter(x, y, label=name)
     plt.xlabel("Safety")
-    plt.ylabel("Usefulness")
+    plt.ylabel("Denormalized Usefulness")
     plt.xlim([0, 1])
     plt.ylim([0, 0.5])
     plt.legend()

@@ -143,10 +143,12 @@ def defer_to_trusted_for_top_k_fraction_suspicious(k):
     assert 0 <= k <= 1, "K must be a float between 0 and 1"
 
     def defer_to_trusted(suspiciousness_scores, strong_solutions, weak_solutions):
-        for key, value in strong_solutions.items():
-            suspiciousness = suspiciousness_scores[key].get("suspiciousness", 10)
-            value["suspiciousness"] = suspiciousness
-            value["backdoor"] = suspiciousness_scores[key].get("backdoor")
+        for key in strong_solutions.keys():
+            suspiciousness = suspiciousness_scores[key].get("suspiciousness", 10) or 10
+            strong_solutions[key]["suspiciousness"] = suspiciousness
+            strong_solutions[key]["backdoor"] = suspiciousness_scores[key].get(
+                "backdoor"
+            )
 
         suspicious_ids = []
         top_k_fraction_index = int(len(strong_solutions) * k)
