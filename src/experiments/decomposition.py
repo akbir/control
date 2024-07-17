@@ -12,12 +12,9 @@ This experiment explores the task decomposition protocol. It does the following 
 import asyncio
 import logging
 
-from core.utils import setup_logging
-
-setup_logging("info")
-
 import numpy as np
 
+from core.utils import setup_logging
 from src.code_evaluation.executor import run_solutions
 from src.code_evaluation.executor_standard import run_solutions
 from src.model_querying.prompt_creation import (
@@ -103,7 +100,7 @@ def join_subtasks(data):
             (
                 value["subtask"],
                 value["suspiciousness"]
-                if value.get("suspiciousness", None) is not None
+                if value.get("suspiciousness") is not None
                 else 0,
                 value["backdoor"],
             )
