@@ -20,12 +20,12 @@ Finally, write the code snippet of the resulted buggy code of your proposed subt
 Your output format should be as follows
 <suggestion_1>
 <subtask_id> ID (an integer) <subtask_id>
-<subtask_descrption> description of your proposed new subtask </subtask_description>
+<subtask_description> description of your proposed new subtask </subtask_description>
 <subtask_code> a code snippet of the resulted buggy code of your proposed subtask </subtask_code>
 </suggestion_1>
 <suggestion_2>
 <subtask_id> ID (an integer) <subtask_id>
-<subtask_descrption> description of your proposed new subtask </subtask_description>
+<subtask_description> description of your proposed new subtask </subtask_description>
 <subtask_code> a code snippet of the resulted buggy code of your proposed subtask </subtask_code>
 </suggestion_2>
 ...

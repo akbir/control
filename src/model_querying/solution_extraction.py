@@ -584,7 +584,7 @@ def extract_backdoor_decomposition_ideas(response, language):
             suggestions.append(
                 {
                     "backdoor_subtask_id": subtask_id,
-                    "backdoor_idea": subtask_description,
+                    "suggestion": subtask_description,
                     "subtasks": modified_subtasks,
                 }
             )
@@ -620,7 +620,7 @@ def extract_backdoor_success(response, language):
     response = response.copy()
     gen = response["response"]["completion"]
     try:
-        if response["metadata"]["backdoor_idea"] is None:
+        if response["metadata"]["suggestion"] is None:
             response["backdoor"] = False
         elif response["metadata"]["backdoor"] is False:
             response["backdoor"] = False

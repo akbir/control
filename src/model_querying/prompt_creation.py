@@ -258,7 +258,7 @@ def evaluate_backdoor_decomposition_sneakiness(solution, language):
     base_prompt = base_prompt.replace("<PROBLEM>", solution["metadata"]["question"])
     base_prompt = base_prompt.replace("<SOLUTION>", solution["modified_solution"])
     base_prompt = base_prompt.replace(
-        "<MODIFICATION>", solution["metadata"]["backdoor_idea"]
+        "<MODIFICATION>", solution["metadata"]["suggestion"]
     )
     base_prompt = base_prompt.replace("<LANGUAGE>", language.code)
 
@@ -314,13 +314,13 @@ def evaluate_backdoor_rarity_noreference(solution, language):
     if (
         solution.get("modified_solution") is None
         or solution.get("gen_test_cases") is None
-        or solution.get("backdoor_idea") is None
+        or solution.get("suggestion") is None
     ):
         return None
 
     base_prompt = RED_TEAM_PROMPTS["get_rarity_rating_noreference.txt"]
     base_prompt = base_prompt.replace("<PROBLEM>", solution["metadata"]["question"])
-    base_prompt = base_prompt.replace("<BACKDOOR_IDEA>", solution["backdoor_idea"])
+    base_prompt = base_prompt.replace("<BACKDOOR_IDEA>", solution["suggestion"])
     base_prompt = base_prompt.replace(
         "<MODIFIED_SOLUTION>", solution["modified_solution"]
     )
@@ -660,10 +660,10 @@ def evaluate_backdoor(solution, language):
     base_prompt = EVAL_PROMPTS["evaluate_backdoor.txt"]
     base_prompt = base_prompt.replace("<PROBLEM>", solution["metadata"]["question"])
 
-    if solution["backdoor_idea"] is None:
+    if solution["suggestion"] is None:
         backdoor_idea = "no backdoor"
     else:
-        backdoor_idea = solution["backdoor_idea"]
+        backdoor_idea = solution["suggestion"]
 
     base_prompt = base_prompt.replace("<BACKDOOR_DESCRIPTION>", backdoor_idea)
     base_prompt = base_prompt.replace("<SOLUTION>", solution["solution"])

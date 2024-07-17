@@ -44,6 +44,7 @@ def select_best_backdoors(original_data, backdoored_data, check_exploit=True):
             )
             selected_data[key] = value
             selected_data[key]["backdoor"] = False
+            selected_data[key]["suggestion"] = None
             continue
 
         logger.debug(f"Problem {key}: Selecting from {len(backdoors)} backdoors")
@@ -76,6 +77,7 @@ def select_best_backdoors(original_data, backdoored_data, check_exploit=True):
             logger.debug(f"Problem {key}: Inserted original solution")
             selected_data[key] = value
             selected_data[key]["backdoor"] = False
+            selected_data[key]["suggestion"] = None
         else:
             logger.debug(f"Problem {key}: Inserted backdoor")
             selected_data[key] = sorted(
