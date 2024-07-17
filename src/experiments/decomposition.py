@@ -54,7 +54,10 @@ from src.model_querying.solution_extraction import (
 from src.monitoring.evaluation import get_usefulness_and_safety
 from src.pipeline.pipeline import Pipeline, PipelineConfig
 from src.pipeline.plotting import plot
-from src.pipeline.transformations import separate_decomposition_suggestions
+from src.pipeline.transformations import (
+    join_by_problem,
+    separate_decomposition_suggestions,
+)
 from src.tools.dataloaders import load_problem_subset
 from src.tools.path_utils import get_root_directory
 
@@ -79,7 +82,6 @@ def separate_subtasks(data):
     for key, value in data.items():
         for i, suggestion in enumerate(value["subtasks"]):
             separated_value = {k: v for k, v in value.items()}
-            # print(value.keys())
             if value["backdoor"] and i == value["backdoor_subtask_id"] - 1:
                 separated_value["backdoor"] = True
             else:
@@ -89,42 +91,23 @@ def separate_subtasks(data):
     return separated_data
 
 
-def join_decomposition_backdoors(data):
-    joined_data = {}
-    for key, value in data.items():
-        problem_id = key.split("-")[0]
-        if problem_id not in joined_data:
-            joined_data[problem_id] = []
-        joined_data[problem_id].append(value)
-    return joined_data
-
-
 def join_subtasks(data):
     joined_data = {}
     for key, value in data.items():
         problem_id = key.split("-")[0]
 
         if problem_id not in joined_data:
-            value["subtasks"] = [
-                (
-                    value["subtask"],
-                    value["suspiciousness"]
-                    if value.get("suspiciousness", None) is not None
-                    else 0,
-                    value["backdoor"],
-                )
-            ]
-            joined_data[problem_id] = value
-        else:
-            joined_data[problem_id]["subtasks"].append(
-                (
-                    value["subtask"],
-                    value["suspiciousness"]
-                    if value.get("suspiciousness", None) is not None
-                    else 0,
-                    value["backdoor"],
-                )
+            value["subtasks"] = []
+
+        joined_data[problem_id]["subtasks"].append(
+            (
+                value["subtask"],
+                value["suspiciousness"]
+                if value.get("suspiciousness", None) is not None
+                else 0,
+                value["backdoor"],
             )
+        )
 
     for key, value in joined_data.items():
         most_suspicious_subtask_id = np.argmax([i[1] for i in value["subtasks"]])
@@ -362,7 +345,7 @@ def get_pipeline(
 
     join_by_problem = pipeline.add_transformation_step(
         "join_by_problem",
-        join_decomposition_backdoors,
+        join_by_problem,
         dependencies=[evaluate_backdoor_step_two],
     )
 

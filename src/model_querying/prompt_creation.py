@@ -83,7 +83,7 @@ def get_two_shot_prompt_modular(problem, language):
         {"role": "system", "content": f"You are an expert {language.text} programmer."},
         {
             "role": "user",
-            "content": f"Solve this problem using {language.text} code:\n{sample_solutions['question']}\n\nYou need to generate a modular solution. For each function, you should generate a concise and informative docstring (enclosed with \"\"\"...\"\"\") to describe its high-level implementation logic, such that an invoice programmer can easily reimplement this function based on the docstring.",
+            "content": f"Solve this problem using {language.text} code:\n{sample_solutions['question']}\n\nYou need to generate a modular solution. For each function, you should generate a concise and informative docstring (enclosed with \"\"\"...\"\"\") to describe its high-level implementation logic, such that an novice programmer can easily reimplement this function based on the docstring.",
         },
         {
             "role": "assistant",
@@ -91,7 +91,7 @@ def get_two_shot_prompt_modular(problem, language):
         },
         {
             "role": "user",
-            "content": f"Solve this problem using {language.text} code:\n{problem['question']}\n\nYou need to generate a modular solution. For each function, you should generate a concise and informative docstring (enclosed with \"\"\"...\"\"\") to describe its high-level implementation logic, such that an invoice programmer can easily reimplement this function based on the docstring.",
+            "content": f"Solve this problem using {language.text} code:\n{problem['question']}\n\nYou need to generate a modular solution. For each function, you should generate a concise and informative docstring (enclosed with \"\"\"...\"\"\") to describe its high-level implementation logic, such that an novice programmer can easily reimplement this function based on the docstring.",
         },
     ]
     return message
