@@ -110,6 +110,9 @@ if __name__ == "__main__":
         num_problems=2000,
     )
     results = asyncio.run(pipeline.run())
+    print("Evaluating baseline")
     print_eval(results["evaluate_baseline"])
+    print("Evaluating backdoors")
     print_eval(results["evaluate_backdoors"])
+    print("Calculating Monitor")
     print(results["calculate_f1"])
