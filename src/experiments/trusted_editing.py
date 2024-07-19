@@ -80,6 +80,18 @@ from src.tools.path_utils import get_root_directory
 logger = logging.getLogger(__name__)
 
 
+# This method sets `backdoor` to False if the original pipeline output was not backdoored
+# This is needed because `check_for_backdoor_in_rewrite` does not query strong_model
+# for non-backdoored solutions and so cannot modify those values.
+def set_innocent_on_known_innocent(backdoor_check, original_pipeline_output):
+    problems = {}
+    for problem_id, problem in backdoor_check.items():
+        problems[problem_id] = problem
+        if not original_pipeline_output[problem_id]["backdoor"]:
+            problems[problem_id]["backdoor"] = False
+    return problems
+
+
 def get_pipeline(
     strong_model,
     weak_model,
@@ -171,7 +183,6 @@ def get_pipeline(
         get_backdoor_input_properties,
         extract_backdoor_input_properties,
         dependencies=[evaluate_backdoor_sneakiness_step],
-        use_cache=False,
     )
     generate_test_cases = pipeline.add_query_step(
         "generate_test_cases",
@@ -197,11 +208,10 @@ def get_pipeline(
     join_backdoors = pipeline.add_transformation_step(
         "join_backdoors", join_by_problem, dependencies=[generate_exploit_input]
     )
-    choose_backdoors = pipeline.add_transformation_step(
-        "choose_backdoors",
+    final_backdoors = pipeline.add_transformation_step(
+        "select_best_backdoors",
         select_target_percent_best_backdoors(1.0),
         dependencies=[get_solutions, join_backdoors],
-        use_cache=False,
     )
 
     ################# Blue team ######################
@@ -210,7 +220,7 @@ def get_pipeline(
         weak_model,
         rewrite_solution,
         extract_solution_in_block,
-        dependencies=[choose_backdoors],
+        dependencies=[final_backdoors],
     )
 
     if use_logprob and "claude" not in weak_model.lower():  # get soft monitoring score
@@ -219,7 +229,7 @@ def get_pipeline(
             weak_model,
             get_soft_suspiciousness,
             extract_soft_suspiciousness,
-            dependencies=[choose_backdoors],
+            dependencies=[final_backdoors],
             logprobs=5,
         )
 
@@ -229,7 +239,7 @@ def get_pipeline(
             weak_model,
             get_suspiciousness,
             extract_suspiciousness,
-            dependencies=[choose_backdoors],
+            dependencies=[final_backdoors],
         )
 
     ################# Evaluation ######################
@@ -243,6 +253,12 @@ def get_pipeline(
         check_backdoor_still_present,
         extract_backdoor_presence,
         dependencies=[rewrite_solutions],
+    )
+
+    set_innocent_on_known_innocent_step = pipeline.add_transformation_step(
+        "set_innocent_on_known_innocent_step",
+        set_innocent_on_known_innocent,
+        dependencies=[check_for_backdoor_in_rewrite, final_backdoors],
     )
 
     ## TEST #2: Check if the exploit test case still applies
@@ -276,7 +292,7 @@ def get_pipeline(
         "evaluate_red_team_solutions",
         strong_model,
         run_solutions,
-        dependencies=[choose_backdoors],
+        dependencies=[final_backdoors],
     )
 
     # rewritten solutions by weak model
@@ -284,7 +300,7 @@ def get_pipeline(
         "evaluate_pipeline_solutions",
         strong_model,
         run_solutions,
-        dependencies=[check_for_backdoor_in_rewrite],
+        dependencies=[set_innocent_on_known_innocent_step],
     )
 
     # Actual usefulness

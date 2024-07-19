@@ -205,9 +205,9 @@ def move_data_into_metadata(data):
         data[data_id]["metadata"] = new_metadata
 
 
-def format_response(data, prompts, model_responses, query_config):
+def format_response(data, model_responses_map, query_config):
     model_responses_flattened = {}
-    for data_id, response in zip(prompts.keys(), model_responses):
+    for data_id, response in model_responses_map.items():
         if query_config.bon == 1:
             model_responses_flattened[f"{data_id}"] = data[data_id] | response[0]
             continue
@@ -242,6 +242,15 @@ async def query_model(model_api, file_sem, query_config):
     ]
 
     model_responses = await asyncio.gather(*model_requests)
-    response = format_response(data, prompts, model_responses, query_config)
+
+    # pass through data that wasn't modified by the request
+    model_responses_map = {
+        data_id: response for data_id, response in zip(prompts.keys(), model_responses)
+    }
+    for key in data.keys():
+        if key not in prompts:
+            model_responses_map[key] = [data[key]]
+
+    response = format_response(data, model_responses_map, query_config)
 
     return response
