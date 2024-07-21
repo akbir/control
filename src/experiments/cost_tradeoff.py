@@ -38,8 +38,7 @@ import logging
 import os
 
 from core.utils import setup_logging
-from pipeline.plotting import plot
-from src.code_evaluation.executor import run_solutions
+from src.code_evaluation.executor_standard import run_solutions
 from src.model_querying.prompt_creation import (
     evaluate_backdoor_rarity,
     evaluate_backdoor_sneakiness,
@@ -49,10 +48,9 @@ from src.model_querying.prompt_creation import (
     get_backdoor_subtlety_improvements,
     get_monitoring_chain_of_thought,
     get_n_backdoor_ideas,
-    get_soft_suspiciousness,
     get_soft_suspiciousness_with_cot,
     get_suspiciousness,
-    get_two_shot_prompt,
+    get_two_shot_prompt_standard,
     implement_backdoors_from_suggestions,
     remove_magic_numbers,
 )
@@ -72,6 +70,7 @@ from src.model_querying.solution_extraction import (
 )
 from src.monitoring.evaluation import get_usefulness_and_safety
 from src.pipeline.pipeline import Pipeline, PipelineConfig
+from src.pipeline.plotting import plot
 from src.pipeline.transformations import (
     defer_to_trusted_for_top_k_fraction_suspicious,
     join_by_problem,
@@ -140,7 +139,7 @@ def get_pipeline(
     get_solutions = pipeline.add_query_step(
         "get_solutions",
         strong_model,
-        get_two_shot_prompt,
+        get_two_shot_prompt_standard,
         extract_solution_in_block,
         dependencies=[load_data],
     )
@@ -226,7 +225,7 @@ def get_pipeline(
     get_weak_solutions = pipeline.add_query_step(
         "get_weak_solutions",
         weak_model,
-        get_two_shot_prompt,
+        get_two_shot_prompt_standard,
         extract_solution_in_block,
         dependencies=[load_data],
     )
@@ -343,7 +342,7 @@ if __name__ == "__main__":
         blue_n=BON_BLUE,
         red_idea_temp=0.6,
         blue_monitor_temp=0.2,
-        use_cache=True,
+        use_cache=False,
     )
     results = asyncio.run(pipeline.run())
     print(
