@@ -50,7 +50,7 @@ class PipelineConfig:
         use_cache=True,
         language=Language.PYTHON,
         num_problems=None,
-        num_open_files=1000000,
+        num_open_files=500,
         organization="NYU_ORG",
         print_prompt_and_response=False,
     ):

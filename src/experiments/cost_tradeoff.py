@@ -38,7 +38,6 @@ import logging
 import os
 
 from core.utils import setup_logging
-from pipeline.plotting import plot
 from src.code_evaluation.executor import run_solutions
 from src.model_querying.prompt_creation import (
     evaluate_backdoor_rarity,
@@ -72,6 +71,8 @@ from src.model_querying.solution_extraction import (
 )
 from src.monitoring.evaluation import get_usefulness_and_safety
 from src.pipeline.pipeline import Pipeline, PipelineConfig
+from src.pipeline.plotting import plot
+from src.runners.evaluate_code import print_eval
 from src.tools.dataloaders import load_problem_subset, load_problems
 from src.tools.path_utils import get_default_results_directory, get_root_directory
 
@@ -205,6 +206,7 @@ def get_pipeline(
         openai_fraction_rate_limit=0.99,
         num_problems=num_problems,
         use_cache=use_cache,
+        num_open_files=1,
     )
 
     pipeline = Pipeline(pipeline_config)
@@ -427,3 +429,9 @@ if __name__ == "__main__":
         sum([i["backdoor"] for i in list(results["select_best_backdoors"].values())]),
     )
     plot(results, EXP_NAME, strong_model, weak_model)
+    print("Evaluating baseline")
+    print_eval(results["evaluate_baseline"])
+    print("Evaluating backdoors")
+    print_eval(results["evaluate_backdoors"])
+    print("Calculating Monitor")
+    print(results["calculate_f1"])

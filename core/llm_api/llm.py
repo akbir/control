@@ -183,10 +183,17 @@ class ModelAPI:
         # If so, directly return previous result
         responses = None
         if use_cache and kwargs.get("save_path") is not None:
-            try:
-                responses = self._load_from_cache(kwargs.get("save_path"))
-            except:
-                logging.error(f"invalid cache data: {kwargs.get('save_path')}")
+            if file_sem is not None:
+                async with file_sem:
+                    try:
+                        responses = self._load_from_cache(kwargs.get("save_path"))
+                    except:
+                        logging.error(f"invalid cache data: {kwargs.get('save_path')}")
+            else:
+                try:
+                    responses = self._load_from_cache(kwargs.get("save_path"))
+                except:
+                    logging.error(f"invalid cache data: {kwargs.get('save_path')}")
 
         # After loading cache, we do not directly return previous results,
         # but continue running it through parse_fn and re-save it.
@@ -253,6 +260,8 @@ class ModelAPI:
 
 
 async def demo():
+    file_sem = asyncio.Semaphore(10)  # Limit to 10 concurrent file operations
+
     model_api = ModelAPI(anthropic_num_threads=2, openai_fraction_rate_limit=0.99)
     anthropic_requests = [
         model_api(
@@ -286,6 +295,7 @@ async def demo():
             max_tokens=16_000,
             n=1,
             print_prompt_and_response=False,
+            file_sem=file_sem,  # Pass the semaphore
         )
         for message in oai_chat_messages
     ]
