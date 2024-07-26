@@ -64,33 +64,13 @@ from src.pipeline.pipeline import Pipeline, PipelineConfig
 from src.pipeline.transformations import (
     defer_to_trusted_for_top_k_fraction_suspicious,
     join_by_problem,
-    select_target_percent_best_backdoors,
     separate_suggestions,
+    split_by_n,
 )
 from src.tools.dataloaders import get_data_dir, load_problem_subset, load_solutions
 from src.tools.path_utils import get_default_results_directory, get_root_directory
 
 logger = logging.getLogger(__name__)
-
-
-def join_by_problem(data):
-    joined_data = {}
-    for key, value in data.items():
-        problem_id = key.split("-")[0]
-        if problem_id not in joined_data:
-            joined_data[problem_id] = []
-        joined_data[problem_id].append(value)
-    return joined_data
-
-
-def split_by_n(data):
-    separated_data = {}
-    for key, value_list in data.items():
-        if not isinstance(value_list, list):
-            value_list = [value_list]
-        for i, value in enumerate(value_list):
-            separated_data[f"{key}-{i}"] = value
-    return separated_data
 
 
 def backdoor_quality(backdoor):
