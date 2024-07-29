@@ -221,56 +221,50 @@ class OpenAIModel(ModelAPIProtocol):
         start = time.time()
 
         async def attempt_api_call():
-            for attempt, model_id in enumerate(cycle(model_ids), start=1):
-                LOGGER.info(f"Attempt {attempt} using model {model_id}")
+            for attempt in range(1, max_attempts + 1):
+                for model_id in cycle(model_ids):
+                    async with self.lock_consume:
+                        request_capacity, token_capacity = (
+                            self.request_capacity[model_id],
+                            self.token_capacity[model_id],
+                        )
+                        if request_capacity.geq(1) and token_capacity.geq(token_count):
+                            request_capacity.consume(1)
+                            token_capacity.consume(token_count)
+                        else:
+                            await asyncio.sleep(0.01)
+                            continue  # Skip this iteration if the condition isn't met
 
-                async with self.lock_consume:
-                    request_capacity, token_capacity = (
-                        self.request_capacity[model_id],
-                        self.token_capacity[model_id],
-                    )
-                    if request_capacity.geq(1) and token_capacity.geq(token_count):
-                        request_capacity.consume(1)
-                        token_capacity.consume(token_count)
-                    else:
-                        await asyncio.sleep(0.01)
-                        continue  # Skip this iteration if the condition isn't met
+                    try:
+                        result = await asyncio.wait_for(
+                            self._make_api_call(prompt, model_id, **kwargs),
+                            timeout=300,  # 5 minutes timeout
+                        )
+                        LOGGER.info(
+                            f"Successful API call to {model_id} on attempt {attempt}"
+                        )
+                        return result
 
-                try:
-                    result = await asyncio.wait_for(
-                        self._make_api_call(prompt, model_id, **kwargs),
-                        timeout=300,  # 5 minutes timeout
-                    )
-                    LOGGER.info(
-                        f"Successful API call to {model_id} on attempt {attempt}"
-                    )
-                    return result
-                except asyncio.TimeoutError:
-                    LOGGER.error(f"Timeout for {model_id} on attempt {attempt}")
-                except openai.error.RateLimitError as e:
-                    LOGGER.error(
-                        f"Rate limit hit for {model_id} on attempt {attempt}: {str(e)}"
-                    )
-                except openai.error.APIConnectionError as e:
-                    LOGGER.error(
-                        f"Connection error for {model_id} on attempt {attempt}: {str(e)}"
-                    )
-                except openai.error.APIError as e:
-                    LOGGER.error(
-                        f"API error for {model_id} on attempt {attempt}: {str(e)}"
-                    )
-                except Exception as e:
-                    LOGGER.error(
-                        f"Unexpected error for {model_id} on attempt {attempt}: {str(e)}"
+                    except (
+                        asyncio.TimeoutError,
+                        openai.error.RateLimitError,
+                        openai.error.APIConnectionError,
+                        openai.error.APIError,
+                        Exception,
+                    ) as e:
+                        attempt += 1
+                        error_type = type(e).__name__
+                        LOGGER.error(
+                            f"{error_type} for {model_id} on attempt {attempt}: {str(e)}"
+                        )
+
+                    LOGGER.debug(
+                        f"Moving to next model after failed attempt with {model_id}"
                     )
 
-                LOGGER.debug(
-                    f"Moving to next model after failed attempt with {model_id}"
+                raise RuntimeError(
+                    f"Failed to get a response after {attempt} attempts across all models"
                 )
-
-            raise RuntimeError(
-                f"Failed to get a response after {attempt} attempts across all models"
-            )
 
         model_ids.sort(
             key=lambda model_id: price_per_token(model_id)[0]
@@ -400,7 +394,6 @@ class OpenAIChatModel(OpenAIModel):
         self, prompt: OAIChatPrompt, model_id, **params
     ) -> list[LLMResponse]:
         start_time = time.time()
-        LOGGER.debug(f"Starting API call to {model_id}")
 
         if params.get("logprobs", None):
             params["top_logprobs"] = params["logprobs"]
@@ -414,7 +407,7 @@ class OpenAIChatModel(OpenAIModel):
                 **params,
             )
             api_duration = time.time() - start_time
-            LOGGER.info(
+            LOGGER.debug(
                 f"API call to {model_id} completed in {api_duration:.2f} seconds"
             )
 
