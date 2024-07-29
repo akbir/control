@@ -128,6 +128,8 @@ def get_pipeline(
         openai_fraction_rate_limit=0.99,
         num_problems=num_problems,
         use_cache=use_cache,
+        strong_model=strong_model,
+        weak_model=weak_model,
     )
 
     pipeline = Pipeline(pipeline_config)
@@ -326,33 +328,44 @@ def get_pipeline(
 
 
 if __name__ == "__main__":
-    BON_RED = 5
-    BON_BLUE = 1
-    EXP_NAME = f"tradeoff_{BON_RED}_{BON_BLUE}"
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Run cost tradeoff experiment")
+    parser.add_argument("--bon_red", type=int, default=5, help="BON_RED value")
+    parser.add_argument("--bon_blue", type=int, default=16, help="BON_BLUE value")
+    parser.add_argument(
+        "--use_cache", type=bool, default=True, help="Whether to use cache"
+    )
+    parser.add_argument(
+        "--num_problems", type=int, default=400, help="Number of problems to process"
+    )
+    args = parser.parse_args()
+
+    BON_RED = args.bon_red
+    BON_BLUE = args.bon_blue
+    EXP_NAME = f"{BON_RED}_{BON_BLUE}"
+
+    print("BON_RED = ", BON_RED)
+    print("BON_BLUE = ", BON_BLUE)
+    print("NUM_PROBLEMS = ", args.num_problems)
     strong_model = "gpt-4-0125-preview"
     weak_model = "gpt-3.5-turbo-1106"
 
     setup_logging("debug")
     pipeline = get_pipeline(
         name=EXP_NAME,
-        num_problems=2000,
+        num_problems=args.num_problems,
         strong_model=strong_model,
         weak_model=weak_model,
         red_n=BON_RED,
         blue_n=BON_BLUE,
         red_idea_temp=0.6,
-        blue_monitor_temp=0.2,
-        use_cache=False,
+        blue_monitor_temp=0.4,
+        use_cache=args.use_cache,
     )
     results = asyncio.run(pipeline.run())
     print(
         "total backdoored num = ",
         sum([i["backdoor"] for i in list(results["select_best_backdoors"].values())]),
     )
-    print("Evaluating baseline")
-    print_eval(results["evaluate_baseline"])
-    print("Evaluating backdoors")
-    print_eval(results["evaluate_backdoors"])
-    print("Calculating Monitor")
-    print(results["calculate_f1"])
     plot(results, pipeline.config.name, strong_model, weak_model)

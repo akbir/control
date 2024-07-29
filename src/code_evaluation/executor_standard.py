@@ -166,7 +166,7 @@ def check(input, pred, answer, special_judge=None):
     return flag
 
 
-def run_solutions(solutions, save_dir=None, use_cache=False, num_threads=8):
+def run_solutions(solutions, save_dir=None, use_cache=False, num_threads=32):
     results = {}
     # load caching results
     if use_cache and save_dir is not None:
