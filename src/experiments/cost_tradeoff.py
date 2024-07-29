@@ -44,6 +44,7 @@ from src.model_querying.prompt_creation import (
     evaluate_backdoor_sneakiness,
     generate_exploit,
     generate_simple_test_cases,
+    get_backdoor_input_properties,
     get_backdoor_rarity_improvements,
     get_backdoor_subtlety_improvements,
     get_monitoring_chain_of_thought,
@@ -57,6 +58,7 @@ from src.model_querying.prompt_creation import (
 from src.model_querying.solution_extraction import (
     extract_backdoor_ideas,
     extract_backdoor_in_block,
+    extract_backdoor_input_properties,
     extract_backdoor_rarity,
     extract_backdoor_sneakiness,
     extract_exploit,
@@ -128,8 +130,6 @@ def get_pipeline(
         openai_fraction_rate_limit=0.9,
         num_problems=num_problems,
         use_cache=use_cache,
-        strong_model=strong_model,
-        weak_model=weak_model,
     )
 
     pipeline = Pipeline(pipeline_config)
@@ -190,21 +190,28 @@ def get_pipeline(
         extract_backdoor_in_block,
         dependencies=[split_by_suggestion],
     )
-    evaluate_backdoor_step_one = pipeline.add_query_step(
+    evaluate_backdoor_sneakiness_step = pipeline.add_query_step(
         "evaluate_backdoor_sneakiness",
         strong_model,
         evaluate_backdoor_sneakiness,
         extract_backdoor_sneakiness,
         dependencies=[implement_backdoors],
     )
+    get_exploit_input_properties = pipeline.add_query_step(
+        "get_exploit_input_properties",
+        strong_model,
+        get_backdoor_input_properties,
+        extract_backdoor_input_properties,
+        dependencies=[evaluate_backdoor_sneakiness_step],
+    )
     generate_test_cases = pipeline.add_query_step(
         "generate_test_cases",
         strong_model,
         generate_simple_test_cases,
         extract_test_cases,
-        dependencies=[evaluate_backdoor_step_one],
+        dependencies=[get_exploit_input_properties],
     )
-    evaluate_backdoor_step_two = pipeline.add_query_step(
+    evaluate_backdoor_rarity_step = pipeline.add_query_step(
         "evaluate_backdoor_rarity",
         strong_model,
         evaluate_backdoor_rarity,
@@ -216,7 +223,7 @@ def get_pipeline(
         strong_model,
         generate_exploit,
         extract_exploit,
-        dependencies=[evaluate_backdoor_step_two],
+        dependencies=[evaluate_backdoor_rarity_step],
     )
     join_exploits = pipeline.add_transformation_step(
         "join_exploits",
