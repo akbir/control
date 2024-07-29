@@ -264,7 +264,7 @@ class OpenAIModel(ModelAPIProtocol):
                         f"Unexpected error for {model_id} on attempt {attempt}: {str(e)}"
                     )
 
-                LOGGER.info(
+                LOGGER.debug(
                     f"Moving to next model after failed attempt with {model_id}"
                 )
 
