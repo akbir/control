@@ -236,8 +236,6 @@ def get_pipeline(
         openai_fraction_rate_limit=0.99,
         num_problems=num_problems,
         use_cache=use_cache,
-        strong_model=strong_model,
-        weak_model=weak_model,
     )
 
     pipeline = Pipeline(pipeline_config)

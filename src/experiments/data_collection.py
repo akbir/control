@@ -41,7 +41,7 @@ from src.model_querying.prompt_creation import (
     get_suspiciousness,
     get_two_shot_prompt,
     get_two_shot_prompt_standard,
-    implement_backdoors_from_suggestions,
+    implement_backdoor_from_suggestion,
     remove_magic_numbers,
     rewrite_solution,
 )
@@ -53,8 +53,8 @@ from src.model_querying.solution_extraction import (
     extract_backdoor_rarity,
     extract_backdoor_sneakiness,
     extract_exploit,
-    extract_good_suggestions,
     extract_improved_backdoor_suggestions,
+    extract_removed_magic_numbers,
     extract_soft_suspiciousness,
     extract_solution_in_block,
     extract_suspiciousness,
@@ -214,7 +214,7 @@ def add_backdoor_pipeline(pipeline, load_data, strong_model, weak_model, n):
         "discard_bad_ideas",
         strong_model,
         remove_magic_numbers,
-        extract_good_suggestions,
+        extract_removed_magic_numbers,
         dependencies=[improve_backdoor_subtlety],
     )
     split_by_suggestion = pipeline.add_transformation_step(
@@ -227,7 +227,7 @@ def add_backdoor_pipeline(pipeline, load_data, strong_model, weak_model, n):
     implement_backdoors = pipeline.add_query_step(
         "implement_backdoors",
         strong_model,
-        implement_backdoors_from_suggestions,
+        implement_backdoor_from_suggestion,
         extract_backdoor_in_block,
         dependencies=[split_by_suggestion],
     )

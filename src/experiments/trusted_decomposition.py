@@ -33,22 +33,12 @@ from src.model_querying.prompt_creation import (
     get_backdoor_rarity_improvements,
     get_backdoor_subtlety_improvements,
     get_decomposition,
-    get_decomposition_modular,
-    get_decomposition_selfcontained,
-    get_n_backdoor_decomposition_ideas,
     get_n_backdoor_ideas,
     get_recomposed_solution,
-    get_selfcontained_subtask_solution,
-    get_soft_suspiciousness,
-    get_solution_with_hint,
-    get_solution_with_hint_modular,
     get_subtask_solution,
     get_subtask_subsolution_suspiciousness,
-    get_subtask_suspiciousness,
-    get_suspiciousness,
-    get_two_shot_prompt_modular,
     get_two_shot_prompt_standard,
-    implement_backdoors_from_suggestions,
+    implement_backdoor_from_suggestion,
     remove_magic_numbers,
 )
 from src.model_querying.solution_extraction import (
@@ -190,8 +180,6 @@ def get_pipeline(
         openai_fraction_rate_limit=0.99,
         num_problems=num_problems,
         use_cache=use_cache,
-        strong_model=strong_model,
-        weak_model=weak_model,
     )
 
     pipeline = Pipeline(pipeline_config)
@@ -343,7 +331,7 @@ def get_pipeline(
     implement_backdoors = pipeline.add_query_step(
         f"implement_backdoors_{strong_model}+{weak_model}",
         strong_model,
-        implement_backdoors_from_suggestions,
+        implement_backdoor_from_suggestion,
         extract_backdoor_in_block,
         dependencies=[split_by_suggestion],
         team="red",
