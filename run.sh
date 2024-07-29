@@ -4,7 +4,7 @@ RED_BONS=(5 32 64 128)
 BLUE_BONS=(4 8 16 32 64 128 256)
 NUM_PROBLEMS=100
 
-RED_BONS=(32)
+RED_BONS=(28)
 BLUE_BONS=(8)
 for red_bon in "${RED_BONS[@]}"; do
     for blue_bon in "${BLUE_BONS[@]}"; do

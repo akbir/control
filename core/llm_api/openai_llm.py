@@ -221,7 +221,9 @@ class OpenAIModel(ModelAPIProtocol):
         start = time.time()
 
         async def attempt_api_call():
-            for model_id in cycle(model_ids):
+            for attempt, model_id in enumerate(cycle(model_ids), start=1):
+                LOGGER.info(f"Attempt {attempt} using model {model_id}")
+
                 async with self.lock_consume:
                     request_capacity, token_capacity = (
                         self.request_capacity[model_id],
@@ -234,39 +236,40 @@ class OpenAIModel(ModelAPIProtocol):
                         await asyncio.sleep(0.01)
                         continue  # Skip this iteration if the condition isn't met
 
-                # Make the API call outside the lock
-                start_time = time.time()
-                LOGGER.debug(f"Starting API call to {model_id}")
                 try:
                     result = await asyncio.wait_for(
-                        self._make_api_call(prompt, model_id, start, **kwargs),
+                        self._make_api_call(prompt, model_id, **kwargs),
                         timeout=300,  # 5 minutes timeout
                     )
-                    LOGGER.debug(
-                        f"API call to {model_id} completed in {time.time() - start_time:.2f} seconds"
+                    LOGGER.info(
+                        f"Successful API call to {model_id} on attempt {attempt}"
                     )
                     return result
                 except asyncio.TimeoutError:
-                    LOGGER.error(
-                        f"API call to {model_id} timed out after {time.time() - start_time:.2f} seconds"
-                    )
+                    LOGGER.error(f"Timeout for {model_id} on attempt {attempt}")
                 except openai.error.RateLimitError as e:
-                    LOGGER.error(f"Rate limit exceeded for {model_id}: {str(e)}")
+                    LOGGER.error(
+                        f"Rate limit hit for {model_id} on attempt {attempt}: {str(e)}"
+                    )
                 except openai.error.APIConnectionError as e:
-                    LOGGER.error(f"API connection error for {model_id}: {str(e)}")
+                    LOGGER.error(
+                        f"Connection error for {model_id} on attempt {attempt}: {str(e)}"
+                    )
                 except openai.error.APIError as e:
-                    LOGGER.error(f"API error for {model_id}: {str(e)}")
+                    LOGGER.error(
+                        f"API error for {model_id} on attempt {attempt}: {str(e)}"
+                    )
                 except Exception as e:
                     LOGGER.error(
-                        f"Unexpected error during API call to {model_id}: {str(e)}"
+                        f"Unexpected error for {model_id} on attempt {attempt}: {str(e)}"
                     )
 
-                # If we've reached this point, an error occurred. Log and continue to the next model.
-                LOGGER.info(f"Attempting next model after error with {model_id}")
+                LOGGER.info(
+                    f"Moving to next model after failed attempt with {model_id}"
+                )
 
-            # If we've exhausted all models without success, raise an error
             raise RuntimeError(
-                "Failed to get a response from any model after multiple attempts"
+                f"Failed to get a response after {attempt} attempts across all models"
             )
 
         model_ids.sort(
@@ -394,35 +397,53 @@ class OpenAIChatModel(OpenAIModel):
         return top_logprobs
 
     async def _make_api_call(
-        self, prompt: OAIChatPrompt, model_id, start_time, **params
+        self, prompt: OAIChatPrompt, model_id, **params
     ) -> list[LLMResponse]:
-        LOGGER.debug(f"Making {model_id} call with {self.organization}")
+        start_time = time.time()
+        LOGGER.debug(f"Starting API call to {model_id}")
 
         if params.get("logprobs", None):
             params["top_logprobs"] = params["logprobs"]
             params["logprobs"] = True
 
-        api_start = time.time()
-        api_response: OpenAICompletion = await openai.ChatCompletion.acreate(messages=prompt, model=model_id, organization=self.organization, **params)  # type: ignore
-        api_duration = time.time() - api_start
-        duration = time.time() - start_time
-        context_token_cost, completion_token_cost = price_per_token(model_id)
-        context_cost = api_response.usage.prompt_tokens * context_token_cost
-        completion_cost = api_response.usage.completion_tokens * completion_token_cost
-        return [
-            LLMResponse(
-                model_id=model_id,
-                completion=choice.message.content,
-                stop_reason=choice.finish_reason,
-                api_duration=api_duration,
-                duration=duration,
-                cost=context_cost + completion_cost,
-                logprobs=self.convert_top_logprobs(choice.logprobs)
-                if choice.logprobs is not None
-                else None,
+        try:
+            api_response = await openai.ChatCompletion.acreate(
+                messages=prompt,
+                model=model_id,
+                organization=self.organization,
+                **params,
             )
-            for choice in api_response.choices
-        ]
+            api_duration = time.time() - start_time
+            LOGGER.info(
+                f"API call to {model_id} completed in {api_duration:.2f} seconds"
+            )
+
+            context_token_cost, completion_token_cost = price_per_token(model_id)
+            context_cost = api_response.usage.prompt_tokens * context_token_cost
+            completion_cost = (
+                api_response.usage.completion_tokens * completion_token_cost
+            )
+
+            return [
+                LLMResponse(
+                    model_id=model_id,
+                    completion=choice.message.content,
+                    stop_reason=choice.finish_reason,
+                    api_duration=api_duration,
+                    duration=api_duration,
+                    cost=context_cost + completion_cost,
+                    logprobs=self.convert_top_logprobs(choice.logprobs)
+                    if choice.logprobs is not None
+                    else None,
+                )
+                for choice in api_response.choices
+            ]
+        except Exception as e:
+            api_duration = time.time() - start_time
+            LOGGER.error(
+                f"API call to {model_id} failed after {api_duration:.2f} seconds: {str(e)}"
+            )
+            raise
 
     @staticmethod
     def _print_prompt_and_response(
@@ -489,29 +510,44 @@ class OpenAIBaseModel(OpenAIModel):
             return prompt_tokens + completion_tokens
 
     async def _make_api_call(
-        self, prompt: OAIBasePrompt, model_id, start_time, **params
+        self, prompt: OAIBasePrompt, model_id, **params
     ) -> list[LLMResponse]:
-        LOGGER.debug(f"Making {model_id} call with {self.organization}")
-        api_start = time.time()
-        api_response: OpenAICompletion = await openai.Completion.acreate(prompt=prompt, model=model_id, organization=self.organization, **params)  # type: ignore
-        api_duration = time.time() - api_start
-        duration = time.time() - start_time
-        context_token_cost, completion_token_cost = price_per_token(model_id)
-        context_cost = api_response.usage.prompt_tokens * context_token_cost
-        return [
-            LLMResponse(
-                model_id=model_id,
-                completion=choice.text,
-                stop_reason=choice.finish_reason,
-                api_duration=api_duration,
-                duration=duration,
-                cost=context_cost + count_tokens(choice.text) * completion_token_cost,
-                logprobs=choice.logprobs.top_logprobs
-                if choice.logprobs is not None
-                else None,
+        start_time = time.time()
+        LOGGER.debug(f"Starting API call to {model_id}")
+
+        try:
+            api_response = await openai.Completion.acreate(
+                prompt=prompt, model=model_id, organization=self.organization, **params
             )
-            for choice in api_response.choices
-        ]
+            api_duration = time.time() - start_time
+            LOGGER.info(
+                f"API call to {model_id} completed in {api_duration:.2f} seconds"
+            )
+
+            context_token_cost, completion_token_cost = price_per_token(model_id)
+            context_cost = api_response.usage.prompt_tokens * context_token_cost
+
+            return [
+                LLMResponse(
+                    model_id=model_id,
+                    completion=choice.text,
+                    stop_reason=choice.finish_reason,
+                    api_duration=api_duration,
+                    duration=api_duration,
+                    cost=context_cost
+                    + count_tokens(choice.text) * completion_token_cost,
+                    logprobs=choice.logprobs.top_logprobs
+                    if choice.logprobs is not None
+                    else None,
+                )
+                for choice in api_response.choices
+            ]
+        except Exception as e:
+            api_duration = time.time() - start_time
+            LOGGER.error(
+                f"API call to {model_id} failed after {api_duration:.2f} seconds: {str(e)}"
+            )
+            raise
 
     @staticmethod
     def _print_prompt_and_response(prompt: OAIBasePrompt, responses: list[LLMResponse]):
