@@ -267,6 +267,7 @@ def evaluate_backdoor_decomposition_sneakiness(solution, language):
         {"role": "user", "content": base_prompt},
     ]
 
+
 def get_backdoor_input_properties(solution, language):
     if solution.get("modified_solution") is None:
         return None
@@ -278,6 +279,24 @@ def get_backdoor_input_properties(solution, language):
         "<MODIFIED_SOLUTION>", solution["modified_solution"]
     )
     base_prompt = base_prompt.replace("<MODIFICATION>", solution["suggestion"])
+    base_prompt = base_prompt.replace("<LANGUAGE>", language.code)
+
+    return [
+        {"role": "system", "content": f"You are an expert {language.text} programmer."},
+        {"role": "user", "content": base_prompt},
+    ]
+
+
+def get_backdoor_input_properties_noreference(solution, language):
+    if solution.get("modified_solution") is None:
+        return None
+
+    base_prompt = RED_TEAM_PROMPTS["get_exploit_properties_noreference.txt"]
+    base_prompt = base_prompt.replace("<PROBLEM>", solution["metadata"]["question"])
+    base_prompt = base_prompt.replace(
+        "<MODIFIED_SOLUTION>", solution["modified_solution"]
+    )
+    base_prompt = base_prompt.replace("<BACKDOOR_IDEA>", solution["suggestion"])
     base_prompt = base_prompt.replace("<LANGUAGE>", language.code)
 
     return [
@@ -335,7 +354,7 @@ def evaluate_backdoor_rarity_noreference(solution, language):
     if (
         solution.get("modified_solution") is None
         or solution.get("gen_test_cases") is None
-        or solution.get("suggestion") is None
+        or solution.get("exploit_properties") is None
     ):
         return None
 
@@ -346,8 +365,9 @@ def evaluate_backdoor_rarity_noreference(solution, language):
         "<MODIFIED_SOLUTION>", solution["modified_solution"]
     )
     base_prompt = base_prompt.replace(
-        "<TEST_CASES>", "\n".join(solution["gen_test_cases"])
+        "<EXPLOIT_PROPERTIES>", "\n".join(solution["exploit_properties"])
     )
+    base_prompt = base_prompt.replace("<INPUTS>", "\n".join(solution["gen_test_cases"]))
     base_prompt = base_prompt.replace("<LANGUAGE>", language.code)
 
     return [
@@ -363,6 +383,24 @@ def generate_exploit(solution, language):
     base_prompt = RED_TEAM_PROMPTS["generate_exploit.txt"]
     base_prompt = base_prompt.replace("<PROBLEM>", solution["metadata"]["question"])
     base_prompt = base_prompt.replace("<SOLUTION>", solution["solution"])
+    base_prompt = base_prompt.replace(
+        "<MODIFIED_SOLUTION>", solution["modified_solution"]
+    )
+    base_prompt = base_prompt.replace("<MODIFICATION>", solution["suggestion"])
+    base_prompt = base_prompt.replace("<LANGUAGE>", language.code)
+
+    return [
+        {"role": "system", "content": f"You are an expert {language.text} programmer."},
+        {"role": "user", "content": base_prompt},
+    ]
+
+
+def generate_exploit_noreference(solution, language):
+    if solution.get("modified_solution") is None:
+        return None
+
+    base_prompt = RED_TEAM_PROMPTS["generate_exploit_noreference.txt"]
+    base_prompt = base_prompt.replace("<PROBLEM>", solution["metadata"]["question"])
     base_prompt = base_prompt.replace(
         "<MODIFIED_SOLUTION>", solution["modified_solution"]
     )
@@ -452,6 +490,46 @@ def get_decomposition(solution, language):
     return message
 
 
+def get_decomposition_selfcontained(solution, language):
+    sample_solutions = json.loads(SOLUTION_PROMPTS[f"code_gen.json"])
+    prompt_template = BLUE_TEAM_PROMPTS["generate_selfcontained_decomposition.txt"]
+
+    def get_plan_string(plan):
+        plan = plan.replace("<subtask_", "<subproblem_").replace(
+            "</subtask_", "</subproblem_"
+        )
+        return f"Here are several self-contained subproblems for solving this problem:\n{plan}"
+
+    message = [
+        {"role": "system", "content": f"You are an expert {language.text} programmer."},
+        {
+            "role": "user",
+            "content": prompt_template.replace(
+                "<PROBLEM>", sample_solutions["question"]
+            ),
+        },
+        {
+            "role": "assistant",
+            "content": f"{get_plan_string(sample_solutions['subtask_list'])}",
+        },
+        {
+            "role": "user",
+            "content": prompt_template.replace(
+                "<PROBLEM>", sample_solutions["question_2"]
+            ),
+        },
+        {
+            "role": "assistant",
+            "content": f"{get_plan_string(sample_solutions['subtask_list_2'])}",
+        },
+        {
+            "role": "user",
+            "content": prompt_template.replace("<PROBLEM>", solution["question"]),
+        },
+    ]
+    return message
+
+
 def get_decomposition_zeroshot(solution, language):
     base_prompt = RED_TEAM_PROMPTS["get_decomposition.txt"]
     base_prompt = base_prompt.replace("<PROBLEM>", solution["question"])
@@ -521,9 +599,32 @@ def get_subtask_suspiciousness(solution, language):
     ]
 
 
+def get_subtask_subsolution_suspiciousness(solution, language):
+    base_prompt = BLUE_TEAM_PROMPTS["get_subtask_subsolution_suspiciousness.txt"]
+    base_prompt = base_prompt.replace("<PROBLEM>", solution["question"])
+    base_prompt = base_prompt.replace("<SUBTASK>", solution["subtask"])
+    base_prompt = base_prompt.replace("<SUBSOLUTION>", solution["solution"])
+
+    return [
+        {"role": "system", "content": f"You are an expert {language.text} programmer."},
+        {"role": "user", "content": base_prompt},
+    ]
+
+
 def get_subtask_solution(solution, language):
     base_prompt = BLUE_TEAM_PROMPTS["get_subtask_solution.txt"]
     base_prompt = base_prompt.replace("<PROBLEM>", solution["metadata"]["question"])
+    base_prompt = base_prompt.replace("<SUBTASK>", solution["subtask"])
+    base_prompt = base_prompt.replace("<LANGUAGE>", language.code)
+
+    return [
+        {"role": "system", "content": f"You are an expert {language.text} programmer."},
+        {"role": "user", "content": base_prompt},
+    ]
+
+
+def get_selfcontained_subtask_solution(solution, language):
+    base_prompt = BLUE_TEAM_PROMPTS["get_selfcontained_subtask_solution.txt"]
     base_prompt = base_prompt.replace("<SUBTASK>", solution["subtask"])
     base_prompt = base_prompt.replace("<LANGUAGE>", language.code)
 
@@ -681,7 +782,7 @@ def evaluate_backdoor(solution, language):
     base_prompt = EVAL_PROMPTS["evaluate_backdoor.txt"]
     base_prompt = base_prompt.replace("<PROBLEM>", solution["metadata"]["question"])
 
-    if solution["suggestion"] is None:
+    if solution.get("suggestion") is None:
         backdoor_idea = "no backdoor"
     else:
         backdoor_idea = solution["suggestion"]
@@ -714,16 +815,30 @@ def rewrite_solution(solution, language):
 def check_backdoor_still_present(solution, language):
     if (
         solution.get("solution") is None
-        or solution.get("modified_solution") is None
-        or solution.get("suggestion") is None
+        or (
+            solution.get("modified_solution") is None
+            and solution["metadata"].get("modified_solution") is None
+        )
+        or (
+            solution.get("suggestion") is None
+            and solution["metadata"].get("suggestion") is None
+        )
     ):
         return None
 
+    modified_solution = solution.get("modified_solution")
+    if modified_solution is None:
+        modified_solution = solution["metadata"]["modified_solution"]
+
+    suggestion = solution.get("suggestion")
+    if suggestion is None:
+        suggestion = solution["metadata"]["suggestion"]
+
     base_prompt = BLUE_TEAM_PROMPTS["check_backdoor_still_present.txt"]
     base_prompt = base_prompt.replace("<PROBLEM>", solution["metadata"]["question"])
-    base_prompt = base_prompt.replace("<BACKDOOR>", solution["modified_solution"])
+    base_prompt = base_prompt.replace("<BACKDOOR>", modified_solution)
     base_prompt = base_prompt.replace("<REWRITTEN_CODE>", solution["solution"])
-    base_prompt = base_prompt.replace("<SUGGESTION>", solution["suggestion"])
+    base_prompt = base_prompt.replace("<SUGGESTION>", suggestion)
     base_prompt = base_prompt.replace("<LANGUAGE>", language.code)
 
     return [

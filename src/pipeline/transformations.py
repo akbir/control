@@ -14,6 +14,16 @@ def separate_suggestions(data):
     return separated_data
 
 
+def split_by_n(data):
+    separated_data = {}
+    for key, value_list in data.items():
+        if not isinstance(value_list, list):
+            value_list = [value_list]
+        for i, value in enumerate(value_list):
+            separated_data[f"{key}-{i}"] = value
+    return separated_data
+
+
 def separate_decomposition_suggestions(data):
     separated_data = {}
     for key, value in data.items():
@@ -152,8 +162,8 @@ def select_best_backdoors(
     return selected_data
 
 
-def select_target_percent_best_backdoors(target):
-    return partial(select_best_backdoors, target=target)
+def select_target_percent_best_backdoors(target, check_exploit=True):
+    return partial(select_best_backdoors, target=target, check_exploit=check_exploit)
 
 
 def filter_solutions(strong_solutions, weak_solutions, suspicious_ids):

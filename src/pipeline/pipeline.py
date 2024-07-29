@@ -53,6 +53,8 @@ class PipelineConfig:
         num_open_files=1000000,
         organization="NYU_ORG",
         print_prompt_and_response=False,
+        strong_model=None,
+        weak_model=None,
     ):
         self.name = name
         self.anthropic_num_threads = anthropic_num_threads
@@ -63,6 +65,8 @@ class PipelineConfig:
         self.language = language
         self.num_problems = num_problems
         self.num_open_files = num_open_files
+        self.strong_model = strong_model
+        self.weak_model = weak_model
 
 
 class Pipeline:
@@ -154,14 +158,20 @@ class Pipeline:
         return step
 
     def add_transformation_step(
-        self, name, transformation_fn, dependencies=[], use_cache=None
+        self,
+        name,
+        transformation_fn,
+        dependencies=[],
+        use_cache=None,
+        strong_model=None,
+        weak_model=None,
     ):
         async def call(*args, use_cache, index):
             output = transformation_fn(*args)
             async with self.file_sem:
                 save_to_cache(
                     output,
-                    f"{self.config.name}/{self.config.strong_model}+{self.config.weak_model}/{index:02d}-{name}",
+                    f"{self.config.name}/{index:02d}-{name}/{strong_model}{'+' if strong_model and weak_model else ''}{weak_model}",
                 )
             return output
 
@@ -169,14 +179,21 @@ class Pipeline:
         self.steps.append(step)
         return step
 
-    def add_monitoring_step(self, name, eval_fn, dependencies=[]):
+    def add_monitoring_step(
+        self,
+        name,
+        eval_fn,
+        dependencies=[],
+        strong_model=None,
+        weak_model=None,
+    ):
         async def call(*args, use_cache, index):
             output = eval_fn(*args)
             cache_obj = {"summary": output.to_dict()}
             async with self.file_sem:
                 save_to_cache(
                     cache_obj,
-                    f"{self.config.name}/{self.config.strong_model}+{self.config.weak_model}/{index:02d}-{name}",
+                    f"{self.config.name}/{index:02d}-{name}/{strong_model}{'+' if strong_model and weak_model else ''}{weak_model}",
                 )
             return output
 
@@ -189,6 +206,7 @@ class Pipeline:
 
         queue = deque([task for task in tasks if in_degree[task] == 0])
         sorted_tasks = []
+        task_order = {task: i for i, task in enumerate(tasks)}
 
         while queue:
             task = queue.popleft()
@@ -197,6 +215,7 @@ class Pipeline:
                 in_degree[dependent] -= 1
                 if in_degree[dependent] == 0:
                     queue.append(dependent)
+                    queue = deque(sorted(queue, key=lambda t: task_order[t]))
 
         for i, task in enumerate(sorted_tasks):
             task.index = i
