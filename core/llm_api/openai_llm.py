@@ -235,9 +235,39 @@ class OpenAIModel(ModelAPIProtocol):
                         continue  # Skip this iteration if the condition isn't met
 
                 # Make the API call outside the lock
-                return await asyncio.wait_for(
-                    self._make_api_call(prompt, model_id, start, **kwargs), timeout=120
-                )
+                start_time = time.time()
+                LOGGER.debug(f"Starting API call to {model_id}")
+                try:
+                    result = await asyncio.wait_for(
+                        self._make_api_call(prompt, model_id, start, **kwargs),
+                        timeout=300,  # 5 minutes timeout
+                    )
+                    LOGGER.debug(
+                        f"API call to {model_id} completed in {time.time() - start_time:.2f} seconds"
+                    )
+                    return result
+                except asyncio.TimeoutError:
+                    LOGGER.error(
+                        f"API call to {model_id} timed out after {time.time() - start_time:.2f} seconds"
+                    )
+                except openai.error.RateLimitError as e:
+                    LOGGER.error(f"Rate limit exceeded for {model_id}: {str(e)}")
+                except openai.error.APIConnectionError as e:
+                    LOGGER.error(f"API connection error for {model_id}: {str(e)}")
+                except openai.error.APIError as e:
+                    LOGGER.error(f"API error for {model_id}: {str(e)}")
+                except Exception as e:
+                    LOGGER.error(
+                        f"Unexpected error during API call to {model_id}: {str(e)}"
+                    )
+
+                # If we've reached this point, an error occurred. Log and continue to the next model.
+                LOGGER.info(f"Attempting next model after error with {model_id}")
+
+            # If we've exhausted all models without success, raise an error
+            raise RuntimeError(
+                "Failed to get a response from any model after multiple attempts"
+            )
 
         model_ids.sort(
             key=lambda model_id: price_per_token(model_id)[0]

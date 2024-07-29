@@ -125,7 +125,7 @@ def get_pipeline(
     pipeline_config = PipelineConfig(
         pipeline_name,
         anthropic_num_threads=40,
-        openai_fraction_rate_limit=0.99,
+        openai_fraction_rate_limit=0.9,
         num_problems=num_problems,
         use_cache=use_cache,
         strong_model=strong_model,
