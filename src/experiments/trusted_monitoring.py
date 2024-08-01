@@ -215,7 +215,10 @@ if __name__ == "__main__":
     strong_model = "gpt-4-0125-preview"
     weak_model = "gpt-3.5-turbo-1106"
     pipeline = get_pipeline(
-        strong_model=strong_model, weak_model=weak_model, num_problems=10, name='newredteam'
+        strong_model=strong_model,
+        weak_model=weak_model,
+        num_problems=10,
+        name="newredteam",
     )
     results = asyncio.run(pipeline.run())
     print(
