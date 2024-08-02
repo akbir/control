@@ -114,6 +114,8 @@ def add_backdoor_tag(data):
         if tagged_data.get(problem_id) is None:
             tagged_data[problem_id] = []
         value["backdoor"] = True
+        value["original_solution"] = value["solution"]
+        value["solution"] = value["modified_solution"]
         tagged_data[problem_id].append(value)
     return tagged_data
 

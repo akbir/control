@@ -87,7 +87,10 @@ def load_solutions(dir, num_problems=None):
         with file.open("r") as f:
             solution = json.load(f)
             # Assume 1 solution per file
-            solutions[file.stem] = solution[0]
+            if isinstance(solution, list):
+                solutions[file.stem] = solution[0]
+            else:
+                solutions[file.stem] = solution
     return solutions
 
 

@@ -62,7 +62,12 @@ logger = logging.getLogger(__name__)
 
 
 def add_backdoor_steps_to_pipeline(
-    pipeline, get_initial_solutions, strong_model, weak_model, num_backdoors=5
+    pipeline,
+    get_initial_solutions,
+    strong_model,
+    weak_model,
+    num_backdoors=5,
+    temperature=0.0,
 ):
     ## Generate and improve ideas
     generate_backdoor_ideas = pipeline.add_query_step(
@@ -71,6 +76,7 @@ def add_backdoor_steps_to_pipeline(
         get_n_backdoor_ideas(num_backdoors),
         extract_backdoor_ideas,
         dependencies=[get_initial_solutions],
+        temperature=temperature,
         team="red",
     )
     improve_backdoor_rarity = pipeline.add_query_step(
@@ -320,6 +326,7 @@ def add_backdoor_steps_to_pipeline(
         dependencies=[filter_non_working_exploit_inputs_step],
         strong_model=strong_model,
         weak_model=weak_model,
+        use_cache=False,
     )
 
     return final_backdoors
