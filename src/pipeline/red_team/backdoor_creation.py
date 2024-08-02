@@ -326,7 +326,6 @@ def add_backdoor_steps_to_pipeline(
         dependencies=[filter_non_working_exploit_inputs_step],
         strong_model=strong_model,
         weak_model=weak_model,
-        use_cache=False,
     )
 
     return final_backdoors
