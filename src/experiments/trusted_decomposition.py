@@ -25,15 +25,14 @@ from src.model_querying.prompt_creation import (
     get_decomposition,
     get_recomposed_solution,
     get_subtask_solution,
-    get_subtask_subsolution_suspiciousness,
     get_two_shot_prompt_standard,
 )
 from src.model_querying.solution_extraction import (
     extract_decomposition,
     extract_solution_in_block,
-    extract_subtask_suspiciousness,
 )
 from src.monitoring.evaluation import get_usefulness_and_safety
+from src.pipeline.blue_team.monitoring import add_basic_blue_team_monitor_to_pipeline
 from src.pipeline.metrics import get_cost
 from src.pipeline.pipeline import Pipeline, PipelineConfig
 from src.pipeline.plotting import plot
@@ -275,13 +274,12 @@ def get_pipeline(
         weak_model=weak_model,
     )
 
-    check_suspiciousness = pipeline.add_query_step(
-        f"check_suspiciousness_{strong_model}+{weak_model}",
+    check_suspiciousness = add_basic_blue_team_monitor_to_pipeline(
+        pipeline,
+        strong_model,
         weak_model,
-        get_subtask_subsolution_suspiciousness,
-        extract_subtask_suspiciousness,
-        dependencies=[backdoored_subsolutions],
-        team="blue",
+        backdoored_subsolutions,
+        name=f"{strong_model}+{weak_model}",
     )
 
     join_backdoored_subtasks_with_suspiciousness = pipeline.add_transformation_step(
@@ -355,7 +353,7 @@ if __name__ == "__main__":
     pipeline = get_pipeline(
         strong_model=strong_model,
         weak_model=weak_model,
-        num_problems=100,
+        num_problems=200,
         name="newredteam",
     )
     results = asyncio.run(pipeline.run())

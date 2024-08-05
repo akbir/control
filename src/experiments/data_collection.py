@@ -20,20 +20,23 @@ STEPS
 8. Evaluate the test case performance of all solutions
 """
 
+import asyncio
 import logging
 
 from src.code_evaluation.executor_standard import run_solutions
+from src.experiments.trusted_decomposition import join_subtasks, separate_subtasks
 from src.model_querying.prompt_creation import (
-    get_soft_suspiciousness,
-    get_suspiciousness,
+    get_decomposition,
+    get_recomposed_solution,
+    get_subtask_solution,
     get_two_shot_prompt_standard,
     rewrite_solution,
 )
 from src.model_querying.solution_extraction import (
-    extract_soft_suspiciousness,
+    extract_decomposition,
     extract_solution_in_block,
-    extract_suspiciousness,
 )
+from src.pipeline.blue_team.monitoring import add_basic_blue_team_monitor_to_pipeline
 from src.pipeline.pipeline import Pipeline, PipelineConfig
 from src.pipeline.red_team.backdoor_creation import add_backdoor_steps_to_pipeline
 from src.pipeline.red_team.monitoring import add_red_team_monitoring_steps_to_pipeline
@@ -132,11 +135,12 @@ def join_output(
     query_malicious_results,
     query_trusted_results,
     trusted_editing_benign_results,
-    trusted_editing_malicious_results
-    # TODO: decomposition_results
+    trusted_editing_malicious_results,
+    trusted_decomposition_benign_results,
+    trusted_decomposition_maliciosu_results,
 ):
     output = {}
-    for problem_id in query_benign_results.keys():
+    for problem_id in trusted_decomposition_benign_results.keys():
         output[problem_id] = {}
         output[problem_id]["query_benign"] = query_benign_results[problem_id]
         output[problem_id]["query_malicious"] = query_malicious_results[problem_id]
@@ -147,8 +151,12 @@ def join_output(
         output[problem_id][
             "trusted_editing_malicious"
         ] = trusted_editing_malicious_results[problem_id]
-        # output[problem_id]['decomposition'] = decomposition_results[problem_id]
-
+        output[problem_id][
+            "trusted_decomposition_benign"
+        ] = trusted_decomposition_benign_results[problem_id]
+        output[problem_id][
+            "trusted_decomposition_malicious"
+        ] = trusted_decomposition_maliciosu_results[problem_id]
     return output
 
 
@@ -196,23 +204,13 @@ def get_pipeline(
         temperature=0.2,
     )
 
-    if use_logprob and "claude" not in weak_model.lower():
-        query_benign_untrusted_suspiciousness = pipeline.add_query_step(
-            "query_benign_untrusted_suspiciousness_logprobs",
-            weak_model,
-            get_soft_suspiciousness,
-            extract_soft_suspiciousness,
-            dependencies=[query_benign_untrusted],
-            logprobs=5,
-        )
-    else:
-        query_benign_untrusted_suspiciousness = pipeline.add_query_step(
-            "query_benign_untrusted_suspiciousness",
-            weak_model,
-            get_suspiciousness,
-            extract_suspiciousness,
-            dependencies=[query_benign_untrusted],
-        )
+    query_benign_untrusted_suspiciousness = add_basic_blue_team_monitor_to_pipeline(
+        pipeline,
+        strong_model,
+        weak_model,
+        query_benign_untrusted,
+        name="benign_untrusted",
+    )
 
     query_benign_untrusted_usefulness = pipeline.add_code_evaluation_step(
         "query_benign_untrusted_usefulness",
@@ -245,23 +243,13 @@ def get_pipeline(
         weak_model=weak_model,
     )
 
-    if use_logprob and "claude" not in weak_model.lower():
-        query_malicious_untrusted_suspiciousness = pipeline.add_query_step(
-            "query_malicious_untrusted_suspiciousness_logprobs",
-            weak_model,
-            get_soft_suspiciousness,
-            extract_soft_suspiciousness,
-            dependencies=[select_backdoors_step],
-            logprobs=5,
-        )
-    else:
-        query_malicious_untrusted_suspiciousness = pipeline.add_query_step(
-            "query_malicious_untrusted_suspiciousness",
-            weak_model,
-            get_suspiciousness,
-            extract_suspiciousness,
-            dependencies=[select_backdoors_step],
-        )
+    query_malicious_untrusted_suspiciousness = add_basic_blue_team_monitor_to_pipeline(
+        pipeline,
+        strong_model,
+        weak_model,
+        select_backdoors_step,
+        name="malicious_untrusted",
+    )
 
     query_malicious_untrusted_usefulness = pipeline.add_code_evaluation_step(
         "query_malicious_untrusted_usefulness",
@@ -299,23 +287,9 @@ def get_pipeline(
         weak_model=weak_model,
     )
 
-    if use_logprob and "claude" not in weak_model.lower():
-        query_trusted_suspiciousness = pipeline.add_query_step(
-            "query_trusted_suspiciousness_logprobs",
-            weak_model,
-            get_soft_suspiciousness,
-            extract_soft_suspiciousness,
-            dependencies=[query_trusted],
-            logprobs=5,
-        )
-    else:
-        query_trusted_suspiciousness = pipeline.add_query_step(
-            "query_trusted_suspiciousness",
-            weak_model,
-            get_suspiciousness,
-            extract_suspiciousness,
-            dependencies=[query_trusted],
-        )
+    query_trusted_suspiciousness = add_basic_blue_team_monitor_to_pipeline(
+        pipeline, strong_model, weak_model, query_trusted, "trusted"
+    )
 
     query_trusted_usefulness = pipeline.add_code_evaluation_step(
         "query_trusted_usefulness",
@@ -341,23 +315,13 @@ def get_pipeline(
         dependencies=[query_benign_untrusted],
     )
 
-    if use_logprob and "claude" not in weak_model.lower():
-        trusted_editing_benign_suspiciousness = pipeline.add_query_step(
-            "trusted_editing_benign_suspiciousness_logprobs",
-            weak_model,
-            get_soft_suspiciousness,
-            extract_soft_suspiciousness,
-            dependencies=[trusted_editing_benign],
-            logprobs=5,
-        )
-    else:
-        trusted_editing_benign_suspiciousness = pipeline.add_query_step(
-            "trusted_editing_benign_suspiciousness",
-            weak_model,
-            get_suspiciousness,
-            extract_suspiciousness,
-            dependencies=[trusted_editing_benign],
-        )
+    trusted_editing_benign_suspiciousness = add_basic_blue_team_monitor_to_pipeline(
+        pipeline,
+        strong_model,
+        weak_model,
+        trusted_editing_benign,
+        name="trusted_editing_benign",
+    )
 
     trusted_editing_benign_usefulness = pipeline.add_code_evaluation_step(
         "trusted_editing_benign_usefulness",
@@ -403,23 +367,13 @@ def get_pipeline(
         weak_model=weak_model,
     )
 
-    if use_logprob and "claude" not in weak_model.lower():
-        trusted_editing_malicious_suspiciousness = pipeline.add_query_step(
-            "trusted_editing_malicious_suspiciousness_logprobs",
-            weak_model,
-            get_soft_suspiciousness,
-            extract_soft_suspiciousness,
-            dependencies=[set_backdoor_on_rewritten_solutions_step],
-            logprobs=5,
-        )
-    else:
-        trusted_editing_malicious_suspiciousness = pipeline.add_query_step(
-            "trusted_editing_malicious_suspiciousness",
-            weak_model,
-            get_suspiciousness,
-            extract_suspiciousness,
-            dependencies=[set_backdoor_on_rewritten_solutions_step],
-        )
+    trusted_editing_malicious_suspiciousness = add_basic_blue_team_monitor_to_pipeline(
+        pipeline,
+        strong_model,
+        weak_model,
+        set_backdoor_on_rewritten_solutions_step,
+        name="trusted_editing_malicious",
+    )
 
     trusted_editing_malicious_usefulness = pipeline.add_code_evaluation_step(
         "trusted_editing_malicious_usefulness",
@@ -439,7 +393,129 @@ def get_pipeline(
         weak_model=weak_model,
     )
 
-    ############################# TODO: Add decomposition #############################
+    ############################# Trusted Decomposition Benign U #############################
+    generate_decompositions = pipeline.add_query_step(
+        "generate_decompositions",
+        weak_model,
+        get_decomposition,
+        extract_decomposition,
+        dependencies=[load_data],
+    )
+
+    split_by_subtask = pipeline.add_transformation_step(
+        "split_by_suggestion", separate_subtasks, dependencies=[generate_decompositions]
+    )
+
+    implement_subtask = pipeline.add_query_step(
+        f"implement_decomposition_{strong_model}+{weak_model}",
+        strong_model,
+        get_subtask_solution,
+        extract_solution_in_block,
+        dependencies=[split_by_subtask],
+    )
+
+    trusted_decomposition_benign_subtask_suspiciousness = (
+        add_basic_blue_team_monitor_to_pipeline(
+            pipeline,
+            strong_model,
+            weak_model,
+            implement_subtask,
+            name=f"trusted_decomposition_benign_{strong_model}+{weak_model}",
+        )
+    )
+
+    trusted_decomposition_benign_suspiciousness = pipeline.add_transformation_step(
+        f"trusted_decomposition_benign_suspiciousness_{strong_model}+{weak_model}",
+        join_subtasks,
+        dependencies=[trusted_decomposition_benign_subtask_suspiciousness],
+    )
+
+    recompose_solutions = pipeline.add_query_step(
+        f"recompose_subtask_{strong_model}+{weak_model}",
+        weak_model,
+        get_recomposed_solution,
+        extract_solution_in_block,
+        dependencies=[trusted_decomposition_benign_suspiciousness],
+    )
+
+    trsuted_decomposition_benign_usefulness = pipeline.add_code_evaluation_step(
+        f"trusted_decomposition_benign_usefulness_{strong_model}+{weak_model}",
+        weak_model,
+        run_solutions,
+        dependencies=[recompose_solutions],
+    )
+
+    trusted_decomposition_benign_results = pipeline.add_transformation_step(
+        "trusted_decomposition_benign_results",
+        create_output,
+        dependencies=[
+            trusted_decomposition_benign_suspiciousness,
+            trsuted_decomposition_benign_usefulness,
+        ],
+        strong_model=strong_model,
+        weak_model=weak_model,
+    )
+
+    ############################# Trusted Decomposition Malicious U #############################
+    backdoored_subtasks = add_backdoor_steps_to_pipeline(
+        pipeline,
+        implement_subtask,
+        strong_model,
+        weak_model,
+        num_backdoors=5,
+        suffix=f"_{strong_model}+{weak_model}",
+    )
+
+    # get best backdoors for each subproblem
+    trusted_decomposition_malicious_subtasks = pipeline.add_transformation_step(
+        f"select_best_backdoors_{strong_model}+{weak_model}",
+        select_backdoors,
+        dependencies=[implement_subtask, backdoored_subtasks],
+        strong_model=strong_model,
+        weak_model=weak_model,
+    )
+
+    trusted_decomposition_malicious_subtask_suspiciousness = (
+        add_basic_blue_team_monitor_to_pipeline(
+            pipeline,
+            strong_model,
+            weak_model,
+            trusted_decomposition_malicious_subtasks,
+            name=f"trusted_decomposition_malicious_{strong_model}+{weak_model}",
+        )
+    )
+
+    trusted_decomposition_malicious_suspiciousness = pipeline.add_transformation_step(
+        f"trusted_decomposition_malicious_suspiciousness_{strong_model}+{weak_model}",
+        join_subtasks,
+        dependencies=[trusted_decomposition_malicious_subtask_suspiciousness],
+    )
+
+    trusted_decomposition_malicious_recomposed_solutions = pipeline.add_query_step(
+        f"recompose_malicious_subtask_{strong_model}+{weak_model}",
+        weak_model,
+        get_recomposed_solution,
+        extract_solution_in_block,
+        dependencies=[trusted_decomposition_malicious_suspiciousness],
+    )
+
+    trsuted_decomposition_malicious_usefulness = pipeline.add_code_evaluation_step(
+        f"trusted_decomposition_benign_usefulness_{strong_model}+{weak_model}",
+        weak_model,
+        run_solutions,
+        dependencies=[recompose_solutions],
+    )
+
+    trusted_decomposition_malicious_results = pipeline.add_transformation_step(
+        "trusted_decomposition_malicious_results",
+        create_output,
+        dependencies=[
+            trusted_decomposition_malicious_suspiciousness,
+            trsuted_decomposition_malicious_usefulness,
+        ],
+        strong_model=strong_model,
+        weak_model=weak_model,
+    )
 
     ############################# Combine Results #############################
     final_results = pipeline.add_transformation_step(
@@ -450,11 +526,30 @@ def get_pipeline(
             query_malicious_results,
             query_trusted_results,
             trusted_editing_benign_results,
-            trusted_editing_malicious_results
-            # TODO: Add decomposition
+            trusted_editing_malicious_results,
+            trusted_decomposition_benign_results,
+            trusted_decomposition_malicious_results,
         ],
         strong_model=strong_model,
         weak_model=weak_model,
     )
 
     return pipeline
+
+
+if __name__ == "__main__":
+    from core.utils import setup_logging
+
+    setup_logging("debug")
+
+    strong_model = "gpt-4-0125-preview"
+    weak_model = "gpt-3.5-turbo-1106"
+
+    data_pipeline = get_pipeline(
+        strong_model=strong_model,
+        weak_model=weak_model,
+        name="overalltest",
+        use_cache=True,
+        num_problems=1,
+    )
+    results = asyncio.run(data_pipeline.run())

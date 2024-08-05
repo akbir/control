@@ -24,15 +24,15 @@ def add_basic_blue_team_monitor_to_pipeline(
             f"remove_code_comments{suffix}",
             strong_model,
             remove_code_comments(use_modified_solution=False),
-            extract_no_comments_code(key_suffix=suffix),
+            extract_no_comments_code(key_suffix=None),
             dependencies=[prev_step],
         )
 
     get_monitor_description_step = pipeline.add_query_step(
         f"get_monitor_description{suffix}",
         weak_model,
-        get_monitor_description(key_suffix=suffix),
-        extract_monitor_description(key_suffix=suffix),
+        get_monitor_description(key_suffix=None),
+        extract_monitor_description(key_suffix=None),
         dependencies=[prev_step],
         team="blue",
     )
@@ -40,8 +40,8 @@ def add_basic_blue_team_monitor_to_pipeline(
     get_backdoor_likelihood_step = pipeline.add_query_step(
         f"get_backdoor_likelihood{suffix}",
         weak_model,
-        get_backdoor_presence_logprobs(key_suffix=suffix),
-        extract_backdoor_presence_logprobs(key_suffix=suffix),
+        get_backdoor_presence_logprobs(key_suffix=None),
+        extract_backdoor_presence_logprobs(key_suffix=None),
         dependencies=[get_monitor_description_step],
         logprobs=5,
         max_tokens=1,
