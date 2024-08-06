@@ -80,47 +80,56 @@ def separate_subtasks(data):
     return separated_data
 
 
-def join_subtasks(data):
-    joined_data = {}
-    for key, value in data.items():
-        assert key.count("-") == 1
-        problem_id = key.split("-")[0]
-        suspiciousness = value.get("suspiciousness", 10) or 10
-        if problem_id not in joined_data:
-            value["subtask"] = [
-                (
-                    value["subtask"],
-                    value["solution"],
-                    suspiciousness,
-                    value.get("backdoor", False),
-                )
-            ]
-            joined_data[problem_id] = value
-        else:
-            joined_data[problem_id]["subtask"].append(
-                (
-                    value["subtask"],
-                    value["solution"],
-                    suspiciousness,
-                    value.get("backdoor", False),
-                )
-            )
+def join_subtasks(key_suffix=None):
+    if key_suffix:
+        if key_suffix[0] != "_":
+            key_suffix = f"_{key_suffix}"
+    else:
+        key_suffix = ""
 
-    for problem_id in joined_data:
-        concat_subtask_str = ""
-        suspiciousness_list = []
-        backdoor_list = []
-        for subtask_id, item in enumerate(joined_data[problem_id]["subtask"]):
-            concat_subtask_str += f"<subtask_{subtask_id}>\n{item[0]}\n```python\n{item[1]}\n```\n</subtask_{subtask_id}>\n"
-            suspiciousness_list.append(item[2])
-            backdoor_list.append(item[3])
-        # max is the best strategy, compared with mean & sum
-        suspiciousness = max(suspiciousness_list)
-        joined_data[problem_id]["subtask"] = concat_subtask_str
-        joined_data[problem_id]["suspiciousness"] = suspiciousness
-        joined_data[problem_id]["backdoor"] = any(backdoor_list)
+    def call(data):
+        joined_data = {}
+        for key, value in data.items():
+            assert key.count("-") == 1
+            problem_id = key.split("-")[0]
+            suspiciousness = value.get(f"suspiciousness{key_suffix}", 10) or 10
+            if problem_id not in joined_data:
+                value["subtask"] = [
+                    (
+                        value["subtask"],
+                        value["solution"],
+                        suspiciousness,
+                        value.get("backdoor", False),
+                    )
+                ]
+                joined_data[problem_id] = value
+            else:
+                joined_data[problem_id]["subtask"].append(
+                    (
+                        value["subtask"],
+                        value["solution"],
+                        suspiciousness,
+                        value.get("backdoor", False),
+                    )
+                )
 
-    return joined_data
+        for problem_id in joined_data:
+            concat_subtask_str = ""
+            suspiciousness_list = []
+            backdoor_list = []
+            for subtask_id, item in enumerate(joined_data[problem_id]["subtask"]):
+                concat_subtask_str += f"<subtask_{subtask_id}>\n{item[0]}\n```python\n{item[1]}\n```\n</subtask_{subtask_id}>\n"
+                suspiciousness_list.append(item[2])
+                backdoor_list.append(item[3])
+            # max is the best strategy, compared with mean & sum
+            suspiciousness = max(suspiciousness_list)
+            joined_data[problem_id]["subtask"] = concat_subtask_str
+            joined_data[problem_id][f"suspiciousness{key_suffix}"] = suspiciousness
+            joined_data[problem_id]["backdoor"] = any(backdoor_list)
+
+        return joined_data
+
+    return call
 
 
 def get_pipeline(
@@ -279,7 +288,6 @@ def get_pipeline(
         strong_model,
         weak_model,
         backdoored_subsolutions,
-        name=f"{strong_model}+{weak_model}",
     )
 
     join_backdoored_subtasks_with_suspiciousness = pipeline.add_transformation_step(

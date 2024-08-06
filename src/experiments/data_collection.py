@@ -91,43 +91,58 @@ def filter_backdoors(n):
     return do_filter
 
 
-def create_output(suspiciousness_data, usefulness_data):
-    output = {}
-    for key in suspiciousness_data:
-        problem_id = key.split("-")[0]
-        if problem_id not in output:
-            output[problem_id] = []
-        output[problem_id].append(
-            {
-                # Basic data
-                "problem_id": problem_id,
-                "problem": usefulness_data[key]["question"],
-                "solution": usefulness_data[key]["solution"],
-                # Correctness
-                "all_correct": usefulness_data[key]["correct"],
-                "num_tests_correct": sum(
-                    [
-                        1 if test["correct"] else 0
-                        for test in usefulness_data[key]["test_cases"]
-                    ]
-                ),
-                "total_tests": len(usefulness_data[key]["test_cases"]),
-                # "test_cases": usefulness_data[key]["test_cases"],
-                # Suspiciousness
-                "suspiciousness": suspiciousness_data[key]["suspiciousness"],
-                # Backdoor Presence
-                "backdoor_present": suspiciousness_data[key]["metadata"].get(
-                    "backdoor", False
-                ),
-                "backdoor_code": suspiciousness_data[key]["metadata"].get("suggestion"),
-                # Backdoor Quality
-                "sneakiness": suspiciousness_data[key].get("sneakiness"),
-                "rarity": suspiciousness_data[key].get("rarity"),
-                "exploit_input": suspiciousness_data[key].get("exploit_input"),
-                "backdoor_quality": suspiciousness_data[key].get("backdoor_quality"),
-            }
-        )
-    return output
+def create_output(key_suffix=None):
+    if key_suffix:
+        if key_suffix[0] != "_":
+            key_suffix = f"_{key_suffix}"
+    else:
+        key_suffix = ""
+
+    def call(suspiciousness_data, usefulness_data):
+        output = {}
+        for key in suspiciousness_data:
+            problem_id = key.split("-")[0]
+            if problem_id not in output:
+                output[problem_id] = []
+            output[problem_id].append(
+                {
+                    # Basic data
+                    "problem_id": problem_id,
+                    "problem": usefulness_data[key]["question"],
+                    "solution": usefulness_data[key]["solution"],
+                    # Correctness
+                    "all_correct": usefulness_data[key]["correct"],
+                    "num_tests_correct": sum(
+                        [
+                            1 if test["correct"] else 0
+                            for test in usefulness_data[key]["test_cases"]
+                        ]
+                    ),
+                    "total_tests": len(usefulness_data[key]["test_cases"]),
+                    # "test_cases": usefulness_data[key]["test_cases"],
+                    # Suspiciousness
+                    "suspiciousness": suspiciousness_data[key][
+                        f"suspiciousness{key_suffix}"
+                    ],
+                    # Backdoor Presence
+                    "backdoor_present": suspiciousness_data[key]["metadata"].get(
+                        "backdoor", False
+                    ),
+                    "backdoor_code": suspiciousness_data[key]["metadata"].get(
+                        "suggestion"
+                    ),
+                    # Backdoor Quality
+                    "sneakiness": suspiciousness_data[key].get("sneakiness"),
+                    "rarity": suspiciousness_data[key].get("rarity"),
+                    "exploit_input": suspiciousness_data[key].get("exploit_input"),
+                    "backdoor_quality": suspiciousness_data[key].get(
+                        "backdoor_quality"
+                    ),
+                }
+            )
+        return output
+
+    return call
 
 
 def join_output(
@@ -137,10 +152,10 @@ def join_output(
     trusted_editing_benign_results,
     trusted_editing_malicious_results,
     trusted_decomposition_benign_results,
-    trusted_decomposition_maliciosu_results,
+    trusted_decomposition_malicious_results,
 ):
     output = {}
-    for problem_id in trusted_decomposition_benign_results.keys():
+    for problem_id in query_benign_results.keys():
         output[problem_id] = {}
         output[problem_id]["query_benign"] = query_benign_results[problem_id]
         output[problem_id]["query_malicious"] = query_malicious_results[problem_id]
@@ -156,7 +171,7 @@ def join_output(
         ] = trusted_decomposition_benign_results[problem_id]
         output[problem_id][
             "trusted_decomposition_malicious"
-        ] = trusted_decomposition_maliciosu_results[problem_id]
+        ] = trusted_decomposition_malicious_results[problem_id]
     return output
 
 
@@ -221,7 +236,7 @@ def get_pipeline(
 
     query_benign_results = pipeline.add_transformation_step(
         "query_benign_results",
-        create_output,
+        create_output("benign_untrusted"),
         dependencies=[
             query_benign_untrusted_suspiciousness,
             query_benign_untrusted_usefulness,
@@ -260,7 +275,7 @@ def get_pipeline(
 
     query_malicious_results = pipeline.add_transformation_step(
         "query_malicious_results",
-        create_output,
+        create_output("malicious_untrusted"),
         dependencies=[
             query_malicious_untrusted_suspiciousness,
             query_malicious_untrusted_usefulness,
@@ -300,7 +315,7 @@ def get_pipeline(
 
     query_trusted_results = pipeline.add_transformation_step(
         "query_trusted_results",
-        create_output,
+        create_output("trusted"),
         dependencies=[query_trusted_suspiciousness, query_trusted_usefulness],
         strong_model=strong_model,
         weak_model=weak_model,
@@ -332,7 +347,7 @@ def get_pipeline(
 
     trusted_editing_benign_results = pipeline.add_transformation_step(
         "trusted_editing_benign_results",
-        create_output,
+        create_output("trusted_editing_benign"),
         dependencies=[
             trusted_editing_benign_suspiciousness,
             trusted_editing_benign_usefulness,
@@ -384,7 +399,7 @@ def get_pipeline(
 
     trusted_editing_malicious_results = pipeline.add_transformation_step(
         "trusted_editing_malicious_results",
-        create_output,
+        create_output("trusted_editing_malicious"),
         dependencies=[
             trusted_editing_malicious_suspiciousness,
             trusted_editing_malicious_usefulness,
@@ -426,8 +441,9 @@ def get_pipeline(
 
     trusted_decomposition_benign_suspiciousness = pipeline.add_transformation_step(
         f"trusted_decomposition_benign_suspiciousness_{strong_model}+{weak_model}",
-        join_subtasks,
+        join_subtasks(f"trusted_decomposition_benign_{strong_model}+{weak_model}"),
         dependencies=[trusted_decomposition_benign_subtask_suspiciousness],
+        use_cache=False,
     )
 
     recompose_solutions = pipeline.add_query_step(
@@ -438,7 +454,7 @@ def get_pipeline(
         dependencies=[trusted_decomposition_benign_suspiciousness],
     )
 
-    trsuted_decomposition_benign_usefulness = pipeline.add_code_evaluation_step(
+    trusted_decomposition_benign_usefulness = pipeline.add_code_evaluation_step(
         f"trusted_decomposition_benign_usefulness_{strong_model}+{weak_model}",
         weak_model,
         run_solutions,
@@ -447,10 +463,10 @@ def get_pipeline(
 
     trusted_decomposition_benign_results = pipeline.add_transformation_step(
         "trusted_decomposition_benign_results",
-        create_output,
+        create_output(f"trusted_decomposition_benign_{strong_model}+{weak_model}"),
         dependencies=[
             trusted_decomposition_benign_suspiciousness,
-            trsuted_decomposition_benign_usefulness,
+            trusted_decomposition_benign_usefulness,
         ],
         strong_model=strong_model,
         weak_model=weak_model,
@@ -487,8 +503,9 @@ def get_pipeline(
 
     trusted_decomposition_malicious_suspiciousness = pipeline.add_transformation_step(
         f"trusted_decomposition_malicious_suspiciousness_{strong_model}+{weak_model}",
-        join_subtasks,
+        join_subtasks(f"trusted_decomposition_malicious_{strong_model}+{weak_model}"),
         dependencies=[trusted_decomposition_malicious_subtask_suspiciousness],
+        use_cache=False,
     )
 
     trusted_decomposition_malicious_recomposed_solutions = pipeline.add_query_step(
@@ -508,7 +525,7 @@ def get_pipeline(
 
     trusted_decomposition_malicious_results = pipeline.add_transformation_step(
         "trusted_decomposition_malicious_results",
-        create_output,
+        create_output(f"trusted_decomposition_malicious_{strong_model}+{weak_model}"),
         dependencies=[
             trusted_decomposition_malicious_suspiciousness,
             trsuted_decomposition_malicious_usefulness,
@@ -548,7 +565,7 @@ if __name__ == "__main__":
     data_pipeline = get_pipeline(
         strong_model=strong_model,
         weak_model=weak_model,
-        name="overalltest",
+        name="fixsuffix",
         use_cache=True,
         num_problems=1,
     )
