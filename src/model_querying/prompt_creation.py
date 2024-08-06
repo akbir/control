@@ -1097,28 +1097,6 @@ def get_monitoring_prompt(solution, language):
     )
 
 
-def _get_suspiciousness(solution, language):
-    solution_string = solution.get("solution")
-    if solution_string is None:
-        solution_string = solution["metadata"]["solution"]
-    if solution_string is None:
-        return Prompt.empty()
-    base_prompt = BLUE_TEAM_PROMPTS["get_suspiciousness.txt"]
-    base_prompt = base_prompt.replace("<PROBLEM>", solution["metadata"]["question"])
-    base_prompt = base_prompt.replace("<SOLUTION>", solution_string)
-    base_prompt = base_prompt.replace("<LANGUAGE>", language.code)
-
-    return Prompt(
-        [
-            {
-                "role": "system",
-                "content": f"You are an expert {language.text} programmer.",
-            },
-            {"role": "user", "content": base_prompt},
-        ]
-    )
-
-
 def get_suspiciousness(key_suffix=None):
     if key_suffix:
         if key_suffix[0] != "_":
