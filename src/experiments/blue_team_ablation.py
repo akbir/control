@@ -13,12 +13,7 @@ from src.tools.dataloaders import load_multiple_solutions, load_solutions
 from src.tools.path_utils import get_default_results_directory
 
 
-def get_pipeline(
-    strong_model,
-    weak_model,
-    num_problems=None,
-    name=None,
-):
+def get_pipeline(strong_model, weak_model, num_problems=None, name=None, logprob=True):
     config = PipelineConfig(
         name,
         anthropic_num_threads=40,
@@ -79,7 +74,7 @@ def get_pipeline(
         weak_model=weak_model,
     )
 
-    if "scalar" in name:  # get scalar (1-10)
+    if not logprob:  # get scalar (1-10)
         get_suspiciousness_innocent = add_basic_scalar_blue_team_monitor_to_pipeline(
             pipeline, strong_model, weak_model, get_innocent_solutions, name="innocent"
         )
@@ -112,8 +107,8 @@ def get_pipeline(
     return innocent_scores, backdoored_scores
 
 
-def plot_results(innocent_scores, backdoored_scores, name):
-    if "scalar" in name:
+def plot_results(innocent_scores, backdoored_scores, name, logprob=True):
+    if not logprob:
         innocent_scores = [i / 10 for i in innocent_scores]
         backdoored_scores = [i / 10 for i in backdoored_scores]
 
@@ -195,5 +190,6 @@ if __name__ == "__main__":
         weak_model="gpt-3.5-turbo-1106",
         num_problems=200,
         name=name,
+        logprob=True,
     )
     plot_results(innocent_scores, backdoored_scores, name)
