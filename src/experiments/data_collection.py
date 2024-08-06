@@ -415,6 +415,7 @@ def get_pipeline(
         get_decomposition,
         extract_decomposition,
         dependencies=[load_data],
+        bon=5,
     )
 
     split_by_subtask = pipeline.add_transformation_step(

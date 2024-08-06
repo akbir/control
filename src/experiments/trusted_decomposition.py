@@ -90,8 +90,7 @@ def join_subtasks(key_suffix=None):
     def call(data):
         joined_data = {}
         for key, value in data.items():
-            assert key.count("-") == 1
-            problem_id = key.split("-")[0]
+            problem_id = "-".join(key.split("-")[:-1])
             suspiciousness = value.get(f"suspiciousness{key_suffix}", 10) or 10
             if problem_id not in joined_data:
                 value["subtask"] = [
