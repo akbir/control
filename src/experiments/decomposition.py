@@ -84,7 +84,7 @@ def merge_decompositions(innocent_decompositions, backdoored_decompositions):
 def join_subtasks(data):
     joined_data = {}
     for key, value in data.items():
-        problem_id = key.split("-")[0]
+        problem_id = "-".join(key.split("-")[:-1])
 
         if problem_id not in joined_data:
             joined_data[problem_id] = data[key]
@@ -93,10 +93,8 @@ def join_subtasks(data):
         joined_data[problem_id]["subtasks"].append(
             (
                 value["subtask"],
-                value["suspiciousness"]
-                if value.get("suspiciousness") is not None
-                else 0,
-                value["backdoor"],
+                value.get("suspiciousness") or 10,
+                value.get("backdoor", False),
             )
         )
 
@@ -321,7 +319,7 @@ def get_pipeline(
         get_subtask_solution,
         extract_solution_in_block,
         dependencies=[split_by_subtask],
-        team="red",
+        team="blue",
     )
 
     check_suspiciousness = add_basic_blue_team_monitor_to_pipeline(
