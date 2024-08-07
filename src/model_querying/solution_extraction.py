@@ -1155,3 +1155,19 @@ def extract_run_exploit_input(response, language):
         )
         response["does_exploit_output_differ"] = None
         return response
+
+
+def extract_difficulty(response, language):
+    response = response.copy()
+    gen = response["response"]["completion"]
+    try:
+        cleaned_gen = "".join(filter(str.isdigit, gen))
+        difficulty = int(cleaned_gen)
+        response["difficulty"] = difficulty
+        return response
+    except Exception as e:
+        logger.info(
+            f"Problem {response['metadata']['uid']}: Error extracting difficulty: {repr(e)}"
+        )
+        response["difficulty"] = None
+        return response
