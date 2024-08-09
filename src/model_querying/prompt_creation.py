@@ -1567,6 +1567,21 @@ def get_difficulty_problem_only(solution, language):
     )
 
 
+def get_difficulty_problem_only(solution, language):
+    base_prompt = BLUE_TEAM_PROMPTS["get_difficulty_problem_only.txt"]
+    base_prompt = base_prompt.replace("<PROBLEM>", solution["question"])
+    base_prompt = base_prompt.replace("<SOLUTION>", solution["solution"])
+    return Prompt(
+        [
+            {
+                "role": "system",
+                "content": f"You are an expert {language.text} programmer.",
+            },
+            {"role": "user", "content": base_prompt},
+        ]
+    )
+
+
 def get_difficulty_problem_solution(solution, language):
     base_prompt = BLUE_TEAM_PROMPTS["get_difficulty_problem_solution.txt"]
     base_prompt = base_prompt.replace("<PROBLEM>", solution["question"])

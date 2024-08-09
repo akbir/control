@@ -9,7 +9,9 @@ from sklearn.calibration import calibration_curve
 from sklearn.metrics import brier_score_loss, roc_auc_score, roc_curve
 
 from src.code_evaluation.executor_standard import run_solutions
+from src.datatypes.enums import DifficultyEstimationType
 from src.model_querying.prompt_creation import (
+    get_difficulty_problem_only,
     get_difficulty_problem_solution,
     get_two_shot_prompt_standard,
 )
@@ -75,7 +77,15 @@ def get_pipeline(
         dependencies=[get_weak_solutions],
     )
 
-    if estimation_method == "problem_solution":
+    if estimation_method == DifficultyEstimationType.PROBLEM_ONLY:
+        get_difficulty = pipeline.add_query_step(
+            "get_difficulty",
+            weak_model,
+            get_difficulty_problem_only,
+            extract_difficulty,
+            dependencies=[evaluate_weak_solutions],
+        )
+    elif estimation_method == DifficultyEstimationType.PROBLEM_SOLUTION:
         get_difficulty = pipeline.add_query_step(
             "get_difficulty_problem_solution",
             weak_model,
@@ -83,7 +93,7 @@ def get_pipeline(
             extract_difficulty,
             dependencies=[evaluate_weak_solutions],
         )
-    elif estimation_method == "problem_solution_execution":
+    elif estimation_method == DifficultyEstimationType.PROBLEM_SOLUTION_EXECUTION:
         # TODO:
         pass
     else:
@@ -130,6 +140,9 @@ def analyze(
     plt.close()
 
     fpr, tpr, _ = roc_curve(binary_eval_results, difficulty_results)
+    with open(f"{save_dir}/roc_curve.json", "w") as f:
+        json.dump({"fpr": fpr.tolist(), "tpr": tpr.tolist()}, f, indent=2)
+
     plt.figure(figsize=(10, 6))
     plt.plot(fpr, tpr)
     plt.plot([0, 1], [0, 1], linestyle="--")
@@ -146,26 +159,21 @@ def analyze(
     plt.plot(prob_pred, prob_true, marker="o")
     plt.plot([0, 1], [0, 1], linestyle="--")
     plt.title("Calibration Curve")
-    plt.xlabel("Mean Predicted Probability")
-    plt.ylabel("Fraction of Positives")
+    plt.xlabel("Difficulty")
+    plt.ylabel("Test Case Accuracy")
     plt.savefig(f"{save_dir}/calibration_curve.png")
     plt.close()
 
 
 if __name__ == "__main__":
     strong_model = "gpt-4-0125-preview"
-    # weak_model = "gpt-4-0125-preview"
-    # weak_model = "claude-3-haiku-20240307"
     weak_model = "gpt-3.5-turbo-1106"
-    # weak_model = "claude-3-sonnet-20240229"
-    # weak_model = "claude-3-5-sonnet-20240620"
-    # weak_model = 'claude-3-opus-20240229'
     pipeline = get_pipeline(
         strong_model=strong_model,
         weak_model=weak_model,
         num_problems=200,
-        estimation_method="problem_solution",
-        name="problem_solution_v2",
+        estimation_method=DifficultyEstimationType.PROBLEM_SOLUTION_EXECUTION,
+        name="problem_solution_execution",
     )
     results = asyncio.run(pipeline.run())
     eval_results = [
@@ -174,8 +182,7 @@ if __name__ == "__main__":
     ]
     binary_eval_results = [i == 1 for i in eval_results]
     difficulty_results = [
-        1 - (i["difficulty"] / 10)
-        for i in results["get_difficulty_problem_solution"].values()
+        1 - (i["difficulty"] / 10) for i in results["get_difficulty"].values()
     ]
     analyze(
         eval_results,
