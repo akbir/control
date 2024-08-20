@@ -1,8 +1,7 @@
 import logging
-import re
 from functools import partial
 
-from src.tools.string_manipulation import format_key_suffix
+from src.tools.string_manipulation import format_key_suffix, strip_comments_from_string
 
 logger = logging.getLogger(__name__)
 
@@ -428,58 +427,12 @@ def defer_to_trusted_for_top_k_fraction_suspicious(k):
     return defer_to_trusted
 
 
-COMMENTS_REGEX = r"""
-^ # Begin of line.
-(?:
-  # A) Capturing group n°1: Full-line comment followed by empty lines.
-  (
-    [ \t]*           # Optional spaces or tabs.
-    \#[^\r\n]*\r?\n  # The comment and the new line.
-    (?:[ \t]*\r?\n)* # Optional empty lines (perhaps with spaces/tabs).
-  )
-|
-  # B) Statement and optional comment at the end.
-  (?:
-    ( # Capturing group n°2 : The statement
-      (?:
-        # Multi-line strings with \"\"\" or '''.
-        # Capturing group n°3 : The triple quotes.
-        (['\"]{3})[\s\S]*?\3
-      |
-        # Double-quoted string "It's ok".
-        \"(?: \\. | [^\"] )*\"
-      |
-        # Single-quoted string 'I\'ll say "Hello!"'.
-        '(?: \\. | [^'] )*'
-      |
-        # Any chars, except spaces, hashtag, quotes and new lines.
-        [^ \t#\"'\r\n]+
-      |
-        # Horizontal spaces, but not followed by a comment, because
-        # we want the spaces in front of the comment to be matched
-        # together with the optional comment we want to get rid of.
-        [ \t]+(?![ \t]*\#)
-      )+
-    )
-    # Capturing group n°4: An optional comment at the end of a statement.
-    (
-      [ \t]*\#[^\r\n]*
-    )?
-  )+
-)
-"""
-
-
 def strip_comments(code_key, key_suffix):
     def func(data):
         output = {}
         for k, v in data.items():
-            v[f"no_comments_solution{key_suffix}"] = re.sub(
-                COMMENTS_REGEX,
-                "\\2",
-                v[code_key],
-                0,
-                re.MULTILINE | re.VERBOSE | re.UNICODE,
+            v[f"no_comments_solution{key_suffix}"] = strip_comments_from_string(
+                v[code_key]
             )
             output[k] = v
         return output

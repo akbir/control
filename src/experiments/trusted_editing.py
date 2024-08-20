@@ -48,7 +48,6 @@ from src.pipeline.metrics import get_cost
 from src.pipeline.pipeline import Pipeline, PipelineConfig
 from src.pipeline.plotting import plot
 from src.pipeline.red_team.backdoor_creation import add_backdoor_steps_to_pipeline
-from src.pipeline.red_team.monitoring import add_red_team_monitoring_steps_to_pipeline
 from src.pipeline.transformations import (
     defer_to_trusted_for_top_k_fraction_suspicious,
     select_backdoors,

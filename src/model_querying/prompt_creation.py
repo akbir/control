@@ -4,7 +4,7 @@ import json
 
 from src.datatypes.enums import PromptType
 from src.tools.dataloaders import load_prompts
-from src.tools.string_manipulation import format_key_suffix
+from src.tools.string_manipulation import format_key_suffix, strip_comments_from_string
 
 SOLUTION_PROMPTS = load_prompts(PromptType.SOLUTION)
 RED_TEAM_PROMPTS = load_prompts(PromptType.RED_TEAM)
@@ -699,10 +699,7 @@ def get_backdoor_presence_logprobs(key_suffix=None, use_non_refusal_prompt=False
             }
         )
 
-        if use_non_refusal_prompt:
-            base_prompt = BLUE_TEAM_PROMPTS["get_backdoor_presence_no_refusal.txt"]
-        else:
-            base_prompt = BLUE_TEAM_PROMPTS["get_backdoor_presence.txt"]
+        base_prompt = BLUE_TEAM_PROMPTS["get_backdoor_presence.txt"]
         monitor_prompt.text.append({"role": "user", "content": base_prompt})
 
         return monitor_prompt
@@ -1557,7 +1554,9 @@ def evaluate_backdoor(solution, language):
 def rewrite_solution(solution, language):
     base_prompt = BLUE_TEAM_PROMPTS["rewrite_solution.txt"]
     base_prompt = base_prompt.replace("<PROBLEM>", solution["metadata"]["question"])
-    base_prompt = base_prompt.replace("<SOLUTION>", solution["solution"])
+    base_prompt = base_prompt.replace(
+        "<SOLUTION>", strip_comments_from_string(solution["solution"])
+    )
     base_prompt = base_prompt.replace("<LANGUAGE>", language.code)
 
     return Prompt(
