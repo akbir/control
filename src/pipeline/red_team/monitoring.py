@@ -8,7 +8,6 @@ from src.model_querying.prompt_creation import (
     get_backdoor_likelihood,
     get_backdoor_presence,
     get_monitor_description,
-    remove_code_comments,
 )
 from src.model_querying.solution_extraction import (
     extract_backdoor_likelihood,
@@ -16,7 +15,6 @@ from src.model_querying.solution_extraction import (
     extract_backdoor_sneakiness,
     extract_backdoor_sneakiness_scalar,
     extract_monitor_description,
-    extract_no_comments_code,
     extract_sneakiness_logprobs,
 )
 from src.pipeline.transformations import (
@@ -152,21 +150,25 @@ def add_red_team_scalar_sneakiness_steps_to_pipeline(
     else:
         return evaluate_backdoor_sneakiness_step
 
+from src.pipeline.transformations import get_backdoor_suspicion_score, strip_comments
+from src.tools.string_manipulation import format_key_suffix
+
 
 def add_red_team_monitoring_steps_to_pipeline(
     pipeline, strong_model, weak_model, prev_step, name=None, use_modified_solution=True
 ):
-    if name is not None:
-        suffix = f"_{name}"
+    suffix = format_key_suffix(name)
+    if use_modified_solution:
+        code = "modified_solution"
     else:
-        suffix = ""
+        code = "solution"
 
-    remove_code_comments_step = pipeline.add_query_step(
+    remove_code_comments_step = pipeline.add_transformation_step(
         f"remove_code_comments_red_team{suffix}",
-        strong_model,
-        remove_code_comments(use_modified_solution=use_modified_solution),
-        extract_no_comments_code(key_suffix=suffix),
+        strip_comments(code, key_suffix=suffix),
         dependencies=[prev_step],
+        strong_model=strong_model,
+        weak_model=weak_model,
     )
     get_monitor_description_step = pipeline.add_query_step(
         f"get_monitor_description_step_red_team{suffix}",
