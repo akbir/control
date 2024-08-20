@@ -94,7 +94,7 @@ def add_basic_blue_team_monitor_to_pipeline(
         logprobs=20,
         max_tokens=1,
         team="blue",
-        use_cache=use_cache,
+        use_cache=False,
     )
 
     return get_backdoor_likelihood_step
