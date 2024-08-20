@@ -15,7 +15,10 @@ from src.model_querying.solution_extraction import (
     extract_backdoor_presence_logprobs,
     extract_backdoor_presence_logprobs_sampling,
     extract_monitor_description,
+<<<<<<< HEAD
     extract_monitor_description_for_plan,
+=======
+>>>>>>> 71c9d68 (Updates to trusted_monitoring and trusted_editing pipelines (#34))
     extract_suspiciousness,
 )
 from src.pipeline.transformations import get_backdoor_suspicion_score, strip_comments
@@ -63,14 +66,20 @@ def add_basic_blue_team_monitor_to_pipeline(
     weak_model,
     prev_step,
     name=None,
+<<<<<<< HEAD
     team_suffix=None,
+=======
+>>>>>>> 71c9d68 (Updates to trusted_monitoring and trusted_editing pipelines (#34))
     remove_comments=True,
     use_cache=True,
 ):
     suffix = format_key_suffix(name)
+<<<<<<< HEAD
     team = "blue"
     if team_suffix:
         team += format_key_suffix(team_suffix)
+=======
+>>>>>>> 71c9d68 (Updates to trusted_monitoring and trusted_editing pipelines (#34))
 
     # removing comments as a red-team affordance
     if remove_comments:
@@ -88,7 +97,11 @@ def add_basic_blue_team_monitor_to_pipeline(
         get_monitor_description(key_suffix=suffix, use_non_refusal_prompt=True),
         extract_monitor_description(key_suffix=suffix),
         dependencies=[prev_step],
+<<<<<<< HEAD
         team=team,
+=======
+        team="blue",
+>>>>>>> 71c9d68 (Updates to trusted_monitoring and trusted_editing pipelines (#34))
         use_cache=use_cache,
     )
 
@@ -100,6 +113,7 @@ def add_basic_blue_team_monitor_to_pipeline(
         dependencies=[get_monitor_description_step],
         logprobs=20,
         max_tokens=1,
+<<<<<<< HEAD
         team=team,
         use_cache=use_cache,
     )
@@ -153,6 +167,9 @@ def add_ryans_blue_team_monitor_to_pipeline(
         logprobs=20,
         max_tokens=1,
         team=team,
+=======
+        team="blue",
+>>>>>>> 71c9d68 (Updates to trusted_monitoring and trusted_editing pipelines (#34))
         use_cache=use_cache,
     )
 
@@ -287,6 +304,7 @@ def add_basic_scalar_blue_team_monitor_to_pipeline(
         weak_model=weak_model,
     )
     return get_backdoor_likelihood_sampling_step
+<<<<<<< HEAD
 
 
 def add_plan_blue_team_monitor_to_pipeline(
@@ -326,3 +344,5 @@ def add_plan_blue_team_monitor_to_pipeline(
     )
 
     return get_backdoor_likelihood_step
+=======
+>>>>>>> 71c9d68 (Updates to trusted_monitoring and trusted_editing pipelines (#34))

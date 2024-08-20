@@ -206,8 +206,13 @@ class Pipeline:
                 data, cached_problem_ids = read_from_cache(
                     f"{self.config.name}/{index:02d}-{name}/{strong_model}{'+' if strong_model and weak_model else ''}{weak_model}"
                 )
+<<<<<<< HEAD
                 if incoming_problem_ids.issubset(set(cached_problem_ids)):
                     return {k: v for k, v in data.items() if k in incoming_problem_ids}
+=======
+                if incoming_problem_ids == set(cached_problem_ids):
+                    return data
+>>>>>>> 71c9d68 (Updates to trusted_monitoring and trusted_editing pipelines (#34))
 
             if asyncio.iscoroutinefunction(transformation_fn):
                 output = await transformation_fn(*args)
@@ -218,8 +223,12 @@ class Pipeline:
                 save_to_cache(
                     output,
                     f"{self.config.name}/{index:02d}-{name}/{strong_model}{'+' if strong_model and weak_model else ''}{weak_model}",
+<<<<<<< HEAD
                     delete_existing=read_cache,
                     incoming_problem_ids=incoming_problem_ids,
+=======
+                    incoming_problem_ids,
+>>>>>>> 71c9d68 (Updates to trusted_monitoring and trusted_editing pipelines (#34))
                 )
             return output
 

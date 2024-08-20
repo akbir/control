@@ -158,6 +158,10 @@ from src.pipeline.transformations import (
 )
 
 
+from src.pipeline.transformations import get_backdoor_suspicion_score, strip_comments
+from src.tools.string_manipulation import format_key_suffix
+
+
 def add_red_team_sneakiness_steps_to_pipeline(
     pipeline, strong_model, weak_model, prev_step, name=None, use_modified_solution=True
 ):
@@ -295,9 +299,12 @@ def add_red_team_monitoring_steps_to_pipeline(
     use_modified_solution=True,
     team_suffix=None,
 ):
+<<<<<<< HEAD
     team = "red"
     if team_suffix:
         team += format_key_suffix(team_suffix)
+=======
+>>>>>>> 71c9d68 (Updates to trusted_monitoring and trusted_editing pipelines (#34))
     suffix = format_key_suffix(name)
     if use_modified_solution:
         code = "modified_solution"

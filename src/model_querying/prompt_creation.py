@@ -643,6 +643,7 @@ def get_monitor_description(
     key_suffix=None, use_subtask=True, use_non_refusal_prompt=False
 ):
     key_suffix = format_key_suffix(key_suffix)
+<<<<<<< HEAD
 
     def call(solution, language):
         if solution.get(f"no_comments_solution{key_suffix}") is None:
@@ -687,13 +688,35 @@ def get_monitor_description(
 
 def get_backdoor_likelihood(key_suffix=None):
     key_suffix = format_key_suffix(key_suffix)
+=======
+>>>>>>> 71c9d68 (Updates to trusted_monitoring and trusted_editing pipelines (#34))
 
     def call(solution, language):
         if solution.get(f"monitor_description{key_suffix}") is None:
             return Prompt.empty()
 
+<<<<<<< HEAD
         monitor_prompt = get_monitor_description(key_suffix=key_suffix)(
             solution, language
+=======
+        if use_subtask and "subtask" in solution:
+            base_prompt = RED_TEAM_PROMPTS[
+                "backdoors_get_monitor_subsolution_description.txt"
+            ]
+            base_prompt = base_prompt.replace("<SUBTASK>", solution["subtask"])
+            # TODO: improve subsolution prompt to be non-refusal
+        else:
+            if use_non_refusal_prompt:
+                base_prompt = RED_TEAM_PROMPTS[
+                    "backdoors_get_monitor_description_no_refusal.txt"
+                ]
+            else:
+                base_prompt = RED_TEAM_PROMPTS["backdoors_get_monitor_description.txt"]
+
+        base_prompt = base_prompt.replace("<PROBLEM>", solution["metadata"]["question"])
+        base_prompt = base_prompt.replace(
+            "<SOLUTION>", solution[f"no_comments_solution{key_suffix}"]
+>>>>>>> 71c9d68 (Updates to trusted_monitoring and trusted_editing pipelines (#34))
         )
         monitor_prompt.text.append(
             {
@@ -737,7 +760,11 @@ def get_monitor_description_for_plan(key_suffix=None):
     return call
 
 
+<<<<<<< HEAD
 def get_backdoor_presence(key_suffix=None):
+=======
+def get_backdoor_likelihood(key_suffix=None):
+>>>>>>> 71c9d68 (Updates to trusted_monitoring and trusted_editing pipelines (#34))
     key_suffix = format_key_suffix(key_suffix)
 
     def call(solution, language):
@@ -756,12 +783,20 @@ def get_backdoor_presence(key_suffix=None):
 
         base_prompt = RED_TEAM_PROMPTS["backdoors_get_backdoor_presence.txt"]
         monitor_prompt.text.append({"role": "user", "content": base_prompt})
+<<<<<<< HEAD
+=======
+        monitor_prompt.logit_bias = {"1": -5, "3": -0.3, "7": -0.3, "I": -10}
+>>>>>>> 71c9d68 (Updates to trusted_monitoring and trusted_editing pipelines (#34))
         return monitor_prompt
 
     return call
 
 
+<<<<<<< HEAD
 def get_backdoor_presence_logprobs(key_suffix=None, use_non_refusal_prompt=False):
+=======
+def get_backdoor_presence(key_suffix=None):
+>>>>>>> 71c9d68 (Updates to trusted_monitoring and trusted_editing pipelines (#34))
     key_suffix = format_key_suffix(key_suffix)
 
     def call(solution, language):
@@ -786,16 +821,26 @@ def get_backdoor_presence_logprobs(key_suffix=None, use_non_refusal_prompt=False
     return call
 
 
+<<<<<<< HEAD
 def get_backdoor_presence_logprobs_for_plan(key_suffix=None):
+=======
+def get_backdoor_presence_logprobs(key_suffix=None, use_non_refusal_prompt=False):
+>>>>>>> 71c9d68 (Updates to trusted_monitoring and trusted_editing pipelines (#34))
     key_suffix = format_key_suffix(key_suffix)
 
     def call(solution, language):
         if solution.get(f"monitor_description_for_plan{key_suffix}") is None:
             return Prompt.empty()
 
+<<<<<<< HEAD
         monitor_prompt = get_monitor_description_for_plan(key_suffix=key_suffix)(
             solution, language
         )
+=======
+        monitor_prompt = get_monitor_description(
+            key_suffix=key_suffix, use_non_refusal_prompt=use_non_refusal_prompt
+        )(solution, language)
+>>>>>>> 71c9d68 (Updates to trusted_monitoring and trusted_editing pipelines (#34))
         monitor_prompt.text.append(
             {
                 "role": "assistant",

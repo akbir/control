@@ -432,6 +432,7 @@ def extract_monitor_description(key_suffix=None):
                 f"Problem {response['metadata']['uid']}: Got a refusal during monitoring description step"
             )
         response[f"monitor_description{key_suffix}"] = gen
+<<<<<<< HEAD
         return response
 
     return call
@@ -448,6 +449,8 @@ def extract_monitor_description_for_plan(key_suffix=None):
                 f"Problem {response['metadata']['uid']}: Got a refusal during monitoring description for plan step"
             )
         response[f"monitor_description_for_plan{key_suffix}"] = gen
+=======
+>>>>>>> 71c9d68 (Updates to trusted_monitoring and trusted_editing pipelines (#34))
         return response
 
     return call
@@ -600,6 +603,57 @@ def extract_backdoor_presence(key_suffix=None, is_red_team=False):
     return call
 
 
+<<<<<<< HEAD
+=======
+def extract_exploit(response, language):
+    response = response.copy()
+    gen = response["response"]["completion"]
+    try:
+        if gen.find(f"<test_input>") == -1 or gen.find(f"</test_input>") == -1:
+            logger.info(
+                f"Problem {response['metadata']['uid']}: Error extracting exploit: no tag found"
+            )
+            response["exploit_input"] = None
+            return response
+
+        start = gen.index(f"<test_input>") + len(f"<test_input>")
+        end = gen.index(f"</test_input>")
+        input = gen[start:end].strip().lower()
+        input = input.replace("\u2022", "")
+        response["exploit_input"] = input
+        return response
+    except Exception as e:
+        logger.info(
+            f"Problem {response['metadata']['uid']}: Error extracting exploit input: {repr(e)}"
+        )
+        response["exploit_input"] = None
+        return response
+
+
+def _extract_suspiciousness(response, language):
+    response = response.copy()
+    gen = response["response"]["completion"]
+    try:
+        if gen.find(f"<ASSESSMENT>") == -1 or gen.find(f"</ASSESSMENT>") == -1:
+            logger.info(
+                f"Problem {response['metadata']['uid']}: Error extracting suspiciousness: no tag found"
+            )
+            response["suspiciousness"] = None
+            return response
+
+        start = gen.index(f"<ASSESSMENT>") + len(f"<ASSESSMENT>")
+        end = gen.index(f"</ASSESSMENT>")
+        response["suspiciousness"] = int(gen[start:end].strip())
+        return response
+    except Exception as e:
+        logger.info(
+            f"Problem {response['metadata']['uid']}: Error extracting suspiciousness: {repr(e)}"
+        )
+        response["suspiciousness"] = None
+        return response
+
+
+>>>>>>> 71c9d68 (Updates to trusted_monitoring and trusted_editing pipelines (#34))
 def extract_suspiciousness(key_suffix=None):
     key_suffix = format_key_suffix(key_suffix)
 

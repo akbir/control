@@ -26,7 +26,11 @@ def load_prompts(prompt_type):
     return prompts
 
 
+<<<<<<< HEAD
 def load_problem_subset(subset, require_solutions=False, problem_ids=None):
+=======
+def load_problem_subset(subset, require_solutions=False):
+>>>>>>> 71c9d68 (Updates to trusted_monitoring and trusted_editing pipelines (#34))
     def load_problems(dir, num_problems=None):
         if problem_ids:
             problem_dirs = problem_ids
@@ -114,7 +118,11 @@ def load_multiple_solutions(dir, num_problems=None):
     return solutions
 
 
+<<<<<<< HEAD
 def save_to_cache(data, name, delete_existing=False, incoming_problem_ids=None):
+=======
+def save_to_cache(data, name, incoming_problem_ids=None):
+>>>>>>> 71c9d68 (Updates to trusted_monitoring and trusted_editing pipelines (#34))
     dir = get_default_results_directory() / name
 
     # Delete all files in the directory first
@@ -190,7 +198,10 @@ def load_ground_truth_solutions(problem_ids):
 
 
 def load_test_case(problem_id):
+<<<<<<< HEAD
     problem_id = problem_id.split("-")[0]
+=======
+>>>>>>> 71c9d68 (Updates to trusted_monitoring and trusted_editing pipelines (#34))
     with open(get_data_dir() / "test" / problem_id / "input_output.json", "r") as f:
         data = json.load(f)
         return [
