@@ -159,7 +159,13 @@ def get_pipeline(
 
 
 def plot_results(
-    innocent_scores, backdoored_scores, name, strong_model, weak_model, logprob=True
+    innocent_scores,
+    backdoored_scores,
+    name,
+    strong_model,
+    weak_model,
+    logprob=True,
+    save_fig=True,
 ):
     save_dir = f"{get_default_results_directory()}/{name}/merged_results/{strong_model}+{weak_model}"
     os.makedirs(save_dir, exist_ok=True)
@@ -237,7 +243,10 @@ def plot_results(
     ax2.legend(loc="lower right")
 
     plt.tight_layout()
-    plt.savefig(f"{save_dir}/{name}.png", dpi=1000)
+    if save_fig:
+        plt.savefig(f"{save_dir}/{name}.png", dpi=1000)
+    else:
+        plt.show()
     plt.close()
 
 

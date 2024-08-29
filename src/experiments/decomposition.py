@@ -15,6 +15,7 @@ import logging
 import numpy as np
 
 from src.code_evaluation.executor_standard import run_solutions
+from src.code_evaluation.exploit_executor import evaluate_exploit_validity
 from src.model_querying.prompt_creation import (
     evaluate_backdoor,
     get_decomposition,
@@ -274,6 +275,7 @@ def get_pipeline(
         team="blue",
     )
 
+    # TODO: Replace this with exploit input checker instead
     check_for_backdoor_in_recomposed_solutions = (
         add_red_team_monitoring_steps_to_pipeline(
             pipeline,
@@ -430,6 +432,15 @@ def get_pipeline(
         weak_model,
         run_solutions,
         dependencies=[vanilla_recomposed_solution],
+    )
+
+    evaluate_exploit = pipeline.add_transformation_step(
+        "evaluate_exploit",
+        evaluate_exploit_validity(pipeline.config.language),
+        dependencies=[select_backdoors_step],
+        strong_model=strong_model,
+        weak_model=weak_model,
+        read_cache=True,
     )
 
     for threshold in range(0, 11, 1):

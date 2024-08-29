@@ -399,7 +399,7 @@ def extract_test_cases(response, language):
 
             # Extract and process the content between the tags
             start = start_index + len("<test_input>")
-            test_cases.append(gen[start:end_index].strip().lower())
+            test_cases.append(gen[start:end_index].strip())
             gen = gen[end_index + len("</test_input>") :]
 
         response["gen_test_cases"] = test_cases
@@ -592,7 +592,7 @@ def extract_backdoor_presence(key_suffix=None, is_red_team=False):
         try:
             if "yes" in gen.lower().strip():
                 response[key] = True
-            elif "no" in gen.lower():
+            elif "no" in gen.lower().strip():
                 response[key] = False
             else:
                 logger.error(
@@ -623,7 +623,7 @@ def extract_exploit(response, language):
 
         start = gen.index(f"<test_input>") + len(f"<test_input>")
         end = gen.index(f"</test_input>")
-        input = gen[start:end].strip().lower()
+        input = gen[start:end].strip()
         input = input.replace("\u2022", "")
         response["exploit_input"] = input
         return response
@@ -1077,7 +1077,7 @@ def extract_exploit_input(response, language):
         start = gen.index(f"<test_input>") + len(f"<test_input>")
         end = gen.index(f"</test_input>")
         response["exploit_work_and_input"] = gen.strip()
-        response["exploit_input"] = gen[start:end].strip().lower().replace("•", "")
+        response["exploit_input"] = gen[start:end].strip().replace("•", "")
         return response
     except Exception as e:
         logger.info(

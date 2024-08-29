@@ -26,9 +26,12 @@ def load_prompts(prompt_type):
     return prompts
 
 
-def load_problem_subset(subset, require_solutions=False):
+def load_problem_subset(subset, require_solutions=False, problem_ids=None):
     def load_problems(dir, num_problems=None):
-        problem_dirs = os.listdir(dir)
+        if problem_ids:
+            problem_dirs = problem_ids
+        else:
+            problem_dirs = os.listdir(dir)
         problems = {}
         added = 0
         for problem_dir in problem_dirs:
@@ -110,8 +113,16 @@ def load_multiple_solutions(dir, num_problems=None):
     return solutions
 
 
-def save_to_cache(data, name, incoming_problem_ids=None):
+def save_to_cache(data, name, delete_existing=False, incoming_problem_ids=None):
     dir = get_default_results_directory() / name
+
+    # Delete all files in the directory first
+    if delete_existing and os.path.exists(dir):
+        for file in os.listdir(dir):
+            file_path = os.path.join(dir, file)
+            if os.path.isfile(file_path):
+                os.unlink(file_path)
+
     os.makedirs(dir, exist_ok=True)
     for k, v in data.items():
         if isinstance(v, list):
@@ -178,6 +189,7 @@ def load_ground_truth_solutions(problem_ids):
 
 
 def load_test_case(problem_id):
+    problem_id = problem_id.split("-")[0]
     with open(get_data_dir() / "test" / problem_id / "input_output.json", "r") as f:
         data = json.load(f)
         return [

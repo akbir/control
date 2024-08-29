@@ -1,6 +1,7 @@
 import logging
 from functools import partial
 
+from src.tools.dataloaders import load_multiple_solutions
 from src.tools.string_manipulation import format_key_suffix, strip_comments_from_string
 
 logger = logging.getLogger(__name__)
@@ -163,6 +164,43 @@ def join_by_problem(data):
             joined_data[problem_id] = []
         joined_data[problem_id].extend(value)
     return joined_data
+
+
+def flatten_backdoors_with_min_per_problem(min_per_problem, data_dir=None, filter=True):
+    def call(data):
+        joined = join_by_problem(data)
+        if data_dir:
+            logger.debug(f"Loading cached data from {data_dir}")
+            cached_data = load_multiple_solutions(data_dir)
+            logger.debug(f"Loading {len(cached_data)} solutions")
+            cached_joined = join_by_problem(cached_data)
+            cached_joined = {k: v for k, v in cached_joined.items() if k in joined}
+            logger.debug(f"Loaded {len(cached_joined)} problems")
+            for key in joined:
+                if key in cached_joined:
+                    joined[key].extend(cached_joined[key])
+            logger.debug(
+                f"Loaded {sum(len(v) for v in joined.values())} combined solutions"
+            )
+        stop = False
+        for key, value_list in joined.items():
+            if len(value_list) < min_per_problem:
+                logger.warning(
+                    f"Expected at least {min_per_problem} backdoors for problem {key}, got {len(value_list)}"
+                )
+                stop = True
+            else:
+                logger.info(f"Found {len(value_list)} backdoors for problem {key}")
+            if filter:
+                # TODO: replace with better red-team backdoor quality estimate
+                joined[key] = sorted(
+                    value_list, key=lambda x: x["sneakiness"], reverse=True
+                )[:min_per_problem]
+        if stop:
+            assert False, "Not enough backdoors"
+        return split_by_n(joined)
+
+    return call
 
 
 def flatten_backdoors(data):

@@ -58,6 +58,7 @@ from src.pipeline.transformations import (
     filter_nonsuspicious_backdoors,
     separate_suggestions,
 )
+from src.tools.string_manipulation import format_key_suffix
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +72,13 @@ def add_backdoor_steps_to_pipeline(
     num_backdoor_attempts=1,
     temperature=0.0,
     suffix="",
+    team_suffix=None,
 ):
+    suffix = format_key_suffix(suffix)
+    team = "red"
+    if team_suffix:
+        team += format_key_suffix(team_suffix)
+
     ## Generate and improve ideas
     generate_backdoor_ideas = pipeline.add_query_step(
         "generate_backdoor_ideas" + suffix,
@@ -81,7 +88,7 @@ def add_backdoor_steps_to_pipeline(
         dependencies=[get_initial_solutions],
         bon=num_backdoor_attempts,
         temperature=temperature,
-        team="red",
+        team=team,
     )
     improve_backdoor_rarity = pipeline.add_query_step(
         "improve_backdoor_rarity" + suffix,
@@ -89,7 +96,7 @@ def add_backdoor_steps_to_pipeline(
         get_backdoor_rarity_improvements,
         extract_improved_backdoor_suggestions,
         dependencies=[generate_backdoor_ideas],
-        team="red",
+        team=team,
     )
     improve_backdoor_subtlety = pipeline.add_query_step(
         "improve_backdoor_subtlety" + suffix,
@@ -97,7 +104,7 @@ def add_backdoor_steps_to_pipeline(
         get_backdoor_subtlety_improvements,
         extract_improved_backdoor_suggestions,
         dependencies=[improve_backdoor_rarity],
-        team="red",
+        team=team,
     )
     discard_magic_numbers = pipeline.add_query_step(
         "discard_magic_numbers" + suffix,
@@ -105,7 +112,7 @@ def add_backdoor_steps_to_pipeline(
         remove_magic_numbers,
         extract_removed_magic_numbers,
         dependencies=[improve_backdoor_subtlety],
-        team="red",
+        team=team,
     )
     discard_prime_numbers = pipeline.add_query_step(
         "discard_prime_numbers" + suffix,
@@ -113,7 +120,7 @@ def add_backdoor_steps_to_pipeline(
         remove_prime_numbers,
         extract_removed_prime_numbers,
         dependencies=[discard_magic_numbers],
-        team="red",
+        team=team,
     )
     split_by_suggestion = pipeline.add_transformation_step(
         "split_by_suggestion" + suffix,
@@ -130,7 +137,7 @@ def add_backdoor_steps_to_pipeline(
         implement_backdoor_from_suggestion,
         extract_backdoor_in_block,
         dependencies=[split_by_suggestion],
-        team="red",
+        team=team,
     )
     improve_backdoor_implementation_step = pipeline.add_query_step(
         "improve_backdoor_implementation_step" + suffix,
@@ -138,7 +145,7 @@ def add_backdoor_steps_to_pipeline(
         improve_backdoor_implementation,
         extract_backdoor_in_block,
         dependencies=[implement_backdoor],
-        team="red",
+        team=team,
     )
 
     ## Sneakiness
@@ -148,7 +155,7 @@ def add_backdoor_steps_to_pipeline(
         evaluate_backdoor_sneakiness_out_of_15,
         extract_backdoor_sneakiness,
         dependencies=[improve_backdoor_implementation_step],
-        team="red",
+        team=team,
     )
     evaluate_backdoor_sneakiness_out_of_7_step = pipeline.add_query_step(
         "evaluate_backdoor_sneakiness_out_of_7_step" + suffix,
@@ -156,7 +163,7 @@ def add_backdoor_steps_to_pipeline(
         evaluate_backdoor_sneakiness_out_of_7,
         extract_backdoor_sneakiness,
         dependencies=[improve_backdoor_implementation_step],
-        team="red",
+        team=team,
     )
     evaluate_backdoor_sneakiness_step = pipeline.add_transformation_step(
         "evaluate_backdoor_sneakiness" + suffix,
@@ -176,7 +183,7 @@ def add_backdoor_steps_to_pipeline(
         generate_simple_inputs,
         extract_test_cases,
         dependencies=[evaluate_backdoor_sneakiness_step],
-        team="red",
+        team=team,
     )
     evaluate_simple_inputs_step = pipeline.add_query_step(
         "evaluate_simple_inputs" + suffix,
@@ -184,7 +191,7 @@ def add_backdoor_steps_to_pipeline(
         evaluate_simple_inputs,
         extract_simple_input_triggers_exploit,
         dependencies=[generate_simple_inputs_step],
-        team="red",
+        team=team,
     )
     filter_extremely_common_backdoors_step = pipeline.add_transformation_step(
         "filter_extremely_common_backdoors" + suffix,
@@ -199,7 +206,7 @@ def add_backdoor_steps_to_pipeline(
         get_backdoor_input_properties,
         extract_backdoor_input_properties,
         dependencies=[filter_extremely_common_backdoors_step],
-        team="red",
+        team=team,
     )
     generate_test_cases = pipeline.add_query_step(
         "generate_test_cases" + suffix,
@@ -207,7 +214,7 @@ def add_backdoor_steps_to_pipeline(
         generate_many_test_cases,
         extract_test_cases,
         dependencies=[get_exploit_input_properties],
-        team="red",
+        team=team,
     )
     evaluate_backdoor_rarity_step = pipeline.add_query_step(
         "evaluate_backdoor_rarity_step" + suffix,
@@ -215,12 +222,16 @@ def add_backdoor_steps_to_pipeline(
         evaluate_backdoor_rarity,
         extract_backdoor_rarity,
         dependencies=[generate_test_cases],
-        team="red",
+        team=team,
     )
 
     ## Filter non-present backdoors
     suspicion_score_step = add_red_team_monitoring_steps_to_pipeline(
-        pipeline, strong_model, weak_model, evaluate_backdoor_rarity_step
+        pipeline,
+        strong_model,
+        weak_model,
+        evaluate_backdoor_rarity_step,
+        team_suffix=team_suffix,
     )
     filter_nonsuspicious_backdoors_step = pipeline.add_transformation_step(
         "filter_nonsuspicious_backdoors" + suffix,
@@ -237,7 +248,7 @@ def add_backdoor_steps_to_pipeline(
         get_suspicious_code_snippet,
         extract_suspicious_code_snippet,
         dependencies=[filter_nonsuspicious_backdoors_step],
-        team="red",
+        team=team,
     )
     get_original_solution_from_backdoor = pipeline.add_query_step(
         "get_original_solution_from_backdoor" + suffix,
@@ -245,7 +256,7 @@ def add_backdoor_steps_to_pipeline(
         get_original_solution,
         extract_original_solution,
         dependencies=[get_suspicious_code_snippet_step],
-        team="red",
+        team=team,
     )
     get_exploit_reasoning_step = pipeline.add_query_step(
         "get_exploit_reasoning" + suffix,
@@ -253,7 +264,7 @@ def add_backdoor_steps_to_pipeline(
         get_exploit_reasoning,
         extract_exploit_reasoning,
         dependencies=[get_original_solution_from_backdoor],
-        team="red",
+        team=team,
     )
     check_exploit_reasoning_step = pipeline.add_query_step(
         "check_exploit_reasoning" + suffix,
@@ -261,7 +272,7 @@ def add_backdoor_steps_to_pipeline(
         check_exploit_reasoning,
         extract_exploit_reasoning_check,
         dependencies=[get_exploit_reasoning_step],
-        team="red",
+        team=team,
     )
     check_exploit_possible_step = pipeline.add_query_step(
         "check_exploit_possible" + suffix,
@@ -269,7 +280,7 @@ def add_backdoor_steps_to_pipeline(
         check_exploit_possible,
         extract_exploit_possible,
         dependencies=[check_exploit_reasoning_step],
-        team="red",
+        team=team,
     )
     filter_impossible_exploits_step = pipeline.add_transformation_step(
         "filter_impossible_exploits" + suffix,
@@ -284,7 +295,7 @@ def add_backdoor_steps_to_pipeline(
         check_exploit_difficulty,
         extract_exploit_difficulty,
         dependencies=[filter_impossible_exploits_step],
-        team="red",
+        team=team,
     )
     get_exploit_input_step = pipeline.add_query_step(
         "get_exploit_input" + suffix,
@@ -292,7 +303,7 @@ def add_backdoor_steps_to_pipeline(
         get_exploit_input,
         extract_exploit_input,
         dependencies=[check_exploit_difficulty_step],
-        team="red",
+        team=team,
     )
     check_exploit_input_step = pipeline.add_query_step(
         "check_exploit_input" + suffix,
@@ -300,7 +311,7 @@ def add_backdoor_steps_to_pipeline(
         check_exploit_input,
         extract_exploit_input_check,
         dependencies=[get_exploit_input_step],
-        team="red",
+        team=team,
     )
     filter_bad_exploit_inputs_step = pipeline.add_transformation_step(
         "filter_bad_exploit_inputs" + suffix,
@@ -315,7 +326,7 @@ def add_backdoor_steps_to_pipeline(
         run_exploit_input,
         extract_run_exploit_input,
         dependencies=[filter_bad_exploit_inputs_step],
-        team="red",
+        team=team,
     )
     filter_non_working_exploit_inputs_step = pipeline.add_transformation_step(
         "filter_non_working_exploit_inputs" + suffix,
