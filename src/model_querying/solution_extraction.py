@@ -48,11 +48,18 @@ def extract_solution_in_block(response, language):
     response = response.copy()
     gen = response["response"]["completion"]
     try:
-        if f"```{language.code}" in gen:
-            gen = gen[gen.index(f"```{language.code}") + len(f"```{language.code}") :]
-        if "\n```" in gen:
-            gen = gen[: gen.index("\n```")]
-        assert any(gen.strip())
+        code_blocks = gen.split(f"```{language.code}")
+        if len(code_blocks) > 1:
+            last_block = code_blocks[-1]
+            if "```" in last_block:
+                gen = last_block[: last_block.rindex("```")]
+            else:
+                gen = last_block
+        else:
+            gen = gen.split("```")[-2] if len(gen.split("```")) > 2 else gen
+
+        gen = gen.strip()
+        assert any(gen)
 
         response["solution"] = gen
         return response
@@ -68,6 +75,13 @@ def extract_rewritten_solution_in_block(response, language):
     pre_rewrite_solution = response["metadata"].get("solution")
     response = extract_solution_in_block(response, language)
     response["pre_rewrite_solution"] = pre_rewrite_solution
+    return response
+
+
+def extract_rewritten_decomposition(response, language):
+    pre_rewrite_subtasks = response["metadata"].get("subtasks")
+    response = extract_decomposition(response, language)
+    response["pre_rewrite_subtasks"] = pre_rewrite_subtasks
     return response
 
 
@@ -483,6 +497,22 @@ def extract_monitor_description(key_suffix=None):
     return call
 
 
+def extract_monitor_description_for_plan(key_suffix=None):
+    key_suffix = format_key_suffix(key_suffix)
+
+    def call(response, language):
+        response = response.copy()
+        gen = response["response"]["completion"]
+        if "I'm sorry" in gen:
+            logger.info(
+                f"Problem {response['metadata']['uid']}: Got a refusal during monitoring description for plan step"
+            )
+        response[f"monitor_description_for_plan{key_suffix}"] = gen
+        return response
+
+    return call
+
+
 def get_yes_no(x):
     x = x.lower()
     y = "yes" in x
@@ -778,7 +808,7 @@ def extract_decomposition(response, language):
                     subtask_descriptions.append(subtask.text.strip())
 
         if not any(subtask_descriptions):
-            subtask_descriptions.append(response["metadata"]["question"])
+            subtask_descriptions.append(gen)
 
         response["subtasks"] = subtask_descriptions
         assert any(subtask_descriptions)

@@ -206,8 +206,8 @@ class Pipeline:
                 data, cached_problem_ids = read_from_cache(
                     f"{self.config.name}/{index:02d}-{name}/{strong_model}{'+' if strong_model and weak_model else ''}{weak_model}"
                 )
-                if incoming_problem_ids == set(cached_problem_ids):
-                    return data
+                if incoming_problem_ids.issubset(set(cached_problem_ids)):
+                    return {k: v for k, v in data.items() if k in incoming_problem_ids}
 
             if asyncio.iscoroutinefunction(transformation_fn):
                 output = await transformation_fn(*args)

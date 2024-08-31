@@ -159,10 +159,18 @@ def separate_decomposition_suggestions(data):
 def join_by_problem(data):
     joined_data = {}
     for key, value in data.items():
+        if len(key.split("-")) == 1:
+            # Already grouped
+            return data
+
         problem_id = key.split("-")[0]
         if problem_id not in joined_data:
             joined_data[problem_id] = []
-        joined_data[problem_id].extend(value)
+
+        if isinstance(value, list):
+            joined_data[problem_id].extend(value)
+        else:
+            joined_data[problem_id].append(value)
     return joined_data
 
 
@@ -199,6 +207,25 @@ def flatten_backdoors_with_min_per_problem(min_per_problem, data_dir=None, filte
         if stop:
             assert False, "Not enough backdoors"
         return split_by_n(joined)
+
+    return call
+
+
+def filter_to_single_backdoor_per_problem(data):
+    joined_data = join_by_problem(data)
+    filtered_data = {}
+    for key, value_list in joined_data.items():
+        filtered_data[key] = value_list[0]
+    return filtered_data
+
+
+def downselect_to_n_subproblems(n):
+    def call(data):
+        output = {}
+        joined_data = join_by_problem(data)
+        for problem_id, problem_list in joined_data.items():
+            output[problem_id] = problem_list[:n]
+        return split_by_n(output)
 
     return call
 

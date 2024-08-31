@@ -23,13 +23,16 @@ STEPS
 import asyncio
 import logging
 
-from src.code_evaluation.executor_standard import run_solutions
-from src.code_evaluation.exploit_executor import evaluate_exploit_validity
-from src.experiments.decomposition import filter_subtasks_above_threshold
-from src.experiments.decomposition import join_subtasks as untrusted_join_subtasks
-from src.experiments.decomposition import (
+from experiments.untrusted_decomposition import (
+    filter_most_suspicious_subtask,
+    filter_subtasks_above_threshold,
+)
+from experiments.untrusted_decomposition import join_subtasks as untrusted_join_subtasks
+from experiments.untrusted_decomposition import (
     separate_subtasks as untrusted_separate_subtasks,
 )
+from src.code_evaluation.executor_standard import run_solutions
+from src.code_evaluation.exploit_executor import evaluate_exploit_validity
 from src.experiments.trusted_decomposition import join_subtasks, separate_subtasks
 from src.model_querying.prompt_creation import (
     get_decomposition,
@@ -53,6 +56,7 @@ from src.pipeline.blue_team.monitoring import add_basic_blue_team_monitor_to_pip
 from src.pipeline.pipeline import Pipeline, PipelineConfig
 from src.pipeline.red_team.backdoor_creation import add_backdoor_steps_to_pipeline
 from src.pipeline.transformations import (
+    downselect_to_n_subproblems,
     flatten_backdoors_with_min_per_problem,
     select_backdoors,
 )
@@ -75,6 +79,9 @@ def create_output(key_suffix=None):
                 "problem": suspiciousness_data[key]["question"],
                 "solution": suspiciousness_data[key]["solution"],
                 "original_solution": suspiciousness_data[key].get("original_solution"),
+                "original_backdoored_solution": suspiciousness_data[key].get(
+                    "original_backdoored_solution"
+                ),
                 ## Problem Correctness
                 "all_correct": usefulness_data[key]["correct"],
                 "num_tests_correct": sum(
@@ -165,8 +172,8 @@ def join_output(
     query_trusted_results,
     query_benign_rewrite_results,
     query_malicious_rewrite_results,
-    trusted_decomposition_benign_results=None,
-    trusted_decomposition_malicious_results=None,
+    # trusted_decomposition_benign_results=None,
+    # trusted_decomposition_malicious_results=None,
     untrusted_decomposition_benign_results=None,
     untrusted_decomposition_benign_edited_results=None,
     untrusted_decomposition_malicious_results=None,
@@ -251,31 +258,31 @@ def join_output(
         }
         output[problem_id]["query_trusted"].append(subproblem_data)
 
-    if trusted_decomposition_benign_results:
-        # add trusted decomposition benign data
-        for key, value in trusted_decomposition_benign_results.items():
-            problem_id = value["problem_id"]
-            parent_data = output[problem_id]
-            subproblem_data = {
-                k: v
-                for k, v in value.items()
-                if k not in ("problem_id", "problem") and v is not None
-            }
-            output[problem_id]["trusted_decomposition_benign_u"].append(subproblem_data)
+    # if trusted_decomposition_benign_results:
+    #     # add trusted decomposition benign data
+    #     for key, value in trusted_decomposition_benign_results.items():
+    #         problem_id = value["problem_id"]
+    #         parent_data = output[problem_id]
+    #         subproblem_data = {
+    #             k: v
+    #             for k, v in value.items()
+    #             if k not in ("problem_id", "problem") and v is not None
+    #         }
+    #         output[problem_id]["trusted_decomposition_benign_u"].append(subproblem_data)
 
-    if trusted_decomposition_malicious_results:
-        # add trusted decomposition malicious data
-        for key, value in trusted_decomposition_malicious_results.items():
-            problem_id = value["problem_id"]
-            parent_data = output[problem_id]
-            subproblem_data = {
-                k: v
-                for k, v in value.items()
-                if k not in ("problem_id", "problem") and v is not None
-            }
-            output[problem_id]["trusted_decomposition_malicious_u"].append(
-                subproblem_data
-            )
+    # if trusted_decomposition_malicious_results:
+    #     # add trusted decomposition malicious data
+    #     for key, value in trusted_decomposition_malicious_results.items():
+    #         problem_id = value["problem_id"]
+    #         parent_data = output[problem_id]
+    #         subproblem_data = {
+    #             k: v
+    #             for k, v in value.items()
+    #             if k not in ("problem_id", "problem") and v is not None
+    #         }
+    #         output[problem_id]["trusted_decomposition_malicious_u"].append(
+    #             subproblem_data
+    #         )
 
     if untrusted_decomposition_benign_results:
         # add untrusted decomposition benign data
@@ -293,16 +300,20 @@ def join_output(
 
     if untrusted_decomposition_benign_edited_results:
         for key, value in untrusted_decomposition_benign_edited_results.items():
-            problem_id = value["problem_id"]
-            parent_data = output[problem_id]
+            problem_id, index = key.split("-")
+
+            parent_data = output[problem_id]["untrusted_decomposition_benign_u"][
+                int(index)
+            ]
+            if "edited_solutions" not in parent_data:
+                parent_data["edited_solutions"] = []
+
             subproblem_data = {
                 k: v
                 for k, v in value.items()
                 if k not in ("problem_id", "problem") and v is not None
             }
-            output[problem_id]["untrusted_decomposition_benign_u"].append(
-                subproblem_data
-            )
+            parent_data["edited_solutions"].append(subproblem_data)
 
     if untrusted_decomposition_malicious_results:
         # add untrusted decomposition malicious data
@@ -320,16 +331,20 @@ def join_output(
 
     if untrusted_decomposition_malicious_edited_results:
         for key, value in untrusted_decomposition_malicious_edited_results.items():
-            problem_id = value["problem_id"]
-            parent_data = output[problem_id]
+            problem_id, index = key.split("-")
+
+            parent_data = output[problem_id]["untrusted_decomposition_malicious_u"][
+                int(index)
+            ]
+            if "edited_solutions" not in parent_data:
+                parent_data["edited_solutions"] = []
+
             subproblem_data = {
                 k: v
                 for k, v in value.items()
                 if k not in ("problem_id", "problem") and v is not None
             }
-            output[problem_id]["untrusted_decomposition_malicious_u"].append(
-                subproblem_data
-            )
+            parent_data["edited_solutions"].append(subproblem_data)
 
     return output
 
@@ -791,19 +806,33 @@ def trusted_decomposition_malicious_pipeline(
     return trusted_decomposition_malicious_results, None  # TODO: Add edited results
 
 
+def update_fields_for_decomposition(data):
+    output = {}
+    for problem_id, problem_data in data.items():
+        output[problem_id] = problem_data
+        output[problem_id]["original_backdoored_solution"] = problem_data["solution"]
+    return output
+
+
 def untrusted_decomposition_benign_pipeline(
     pipeline, query_benign_untrusted_get_solutions, strong_model, weak_model
 ):
-    # Steps:
-    # * Take query benign solution
-    # * Generate plan for solution from code
-    # * Check suspiciousness of plan
+    untrusted_decomposition_benign_downselect_problems = (
+        pipeline.add_transformation_step(
+            "untrusted_decomposition_benign_downselect_problems",
+            downselect_to_n_subproblems(5),
+            dependencies=[query_benign_untrusted_get_solutions],
+            strong_model=strong_model,
+            weak_model=weak_model,
+        )
+    )
+
     untrusted_decomposition_benign_get_plan = pipeline.add_query_step(
         "untrusted_decomposition_benign_get_plan",
         strong_model,
         get_decomposition_from_code,
         extract_decomposition,
-        dependencies=[query_benign_untrusted_get_solutions],
+        dependencies=[untrusted_decomposition_benign_downselect_problems],
         team="red_untrusted_decomposition_benign",
     )
 
@@ -816,23 +845,12 @@ def untrusted_decomposition_benign_pipeline(
         team="blue_untrusted_decomposition_benign",
     )
 
-    untrusted_decomposition_benign_unedited_plan_exploit_check = (
-        pipeline.add_transformation_step(
-            "untrusted_decomposition_benign_unedited_plan_exploit_check",
-            evaluate_exploit_validity(pipeline.config.language),
-            dependencies=[untrusted_decomposition_benign_unedited_plan_solution],
-            strong_model=strong_model,
-            weak_model=weak_model,
-            read_cache=True,
-        )
-    )
-
     untrusted_decomposition_benign_unedited_plan_suspiciousness = (
         add_basic_blue_team_monitor_to_pipeline(
             pipeline,
             strong_model,
             weak_model,
-            untrusted_decomposition_benign_unedited_plan_exploit_check,
+            untrusted_decomposition_benign_unedited_plan_solution,
             name="untrusted_decomposition_benign_unedited_plan",
             team_suffix="untrusted_decomposition_benign",
         )
@@ -843,14 +861,14 @@ def untrusted_decomposition_benign_pipeline(
             f"untrusted_decomposition_benign_unedited_plan_usefulness",
             weak_model,
             run_solutions,
-            dependencies=[untrusted_decomposition_benign_unedited_plan_exploit_check],
+            dependencies=[untrusted_decomposition_benign_unedited_plan_solution],
         )
     )
 
     untrusted_decomposition_benign_unedited_plan_results = (
         pipeline.add_transformation_step(
             "untrusted_decomposition_benign_unedited_plan_results",
-            create_output("untrusted_decomposition_benign"),
+            create_output("untrusted_decomposition_benign_unedited_plan"),
             dependencies=[
                 untrusted_decomposition_benign_unedited_plan_suspiciousness,
                 untrusted_decomposition_benign_unedited_plan_usefulness,
@@ -888,21 +906,19 @@ def untrusted_decomposition_benign_pipeline(
         )
     )
 
-    untrusted_decomposition_benign_pre_rewrite_suspiciousness = (
-        pipeline.add_transformation_step(
-            "untrusted_decomposition_benign_join_subtasks",
-            untrusted_join_subtasks,
-            dependencies=[untrusted_decomposition_benign_subtask_suspiciousness],
-            strong_model=strong_model,
-            weak_model=weak_model,
-        )
+    untrusted_decomposition_benign_join_subtasks = pipeline.add_transformation_step(
+        "untrusted_decomposition_benign_join_subtasks",
+        untrusted_join_subtasks("untrusted_decomposition_benign_subtask"),
+        dependencies=[untrusted_decomposition_benign_subtask_suspiciousness],
+        strong_model=strong_model,
+        weak_model=weak_model,
     )
 
     untrusted_decomposition_benign_filtered_decompositions = (
         pipeline.add_transformation_step(
             f"untrusted_decomposition_benign_filtered_decompositions",
-            filter_subtasks_above_threshold(1.0),
-            dependencies=[untrusted_decomposition_benign_pre_rewrite_suspiciousness],
+            filter_most_suspicious_subtask,
+            dependencies=[untrusted_decomposition_benign_join_subtasks],
             strong_model=strong_model,
             weak_model=weak_model,
         )
@@ -917,23 +933,12 @@ def untrusted_decomposition_benign_pipeline(
         team="blue_untrusted_decomposition_benign",
     )
 
-    untrusted_decomposition_benign_edited_exploit_check = (
-        pipeline.add_transformation_step(
-            "untrusted_decomposition_benign_edited_exploit_check",
-            evaluate_exploit_validity(pipeline.config.language),
-            dependencies=[untrusted_decomposition_benign_final_filtered_solutions],
-            strong_model=strong_model,
-            weak_model=weak_model,
-            read_cache=True,
-        )
-    )
-
     untrusted_decomposition_benign_edited_suspiciousness = (
         add_basic_blue_team_monitor_to_pipeline(
             pipeline,
             strong_model,
             weak_model,
-            untrusted_decomposition_benign_unedited_plan_exploit_check,
+            untrusted_decomposition_benign_final_filtered_solutions,
             name="untrusted_decomposition_benign_edited",
             team_suffix="untrusted_decomposition_benign",
         )
@@ -944,7 +949,7 @@ def untrusted_decomposition_benign_pipeline(
             f"untrusted_decomposition_benign_edited_usefulness",
             weak_model,
             run_solutions,
-            dependencies=[untrusted_decomposition_benign_edited_exploit_check],
+            dependencies=[untrusted_decomposition_benign_final_filtered_solutions],
         )
     )
 
@@ -968,6 +973,24 @@ def untrusted_decomposition_benign_pipeline(
 def untrusted_decomposition_malicious_pipeline(
     pipeline, query_malicious_flatten_backdoors, strong_model, weak_model
 ):
+    untrusted_decomposition_malicious_downselect_problems = (
+        pipeline.add_transformation_step(
+            "untrusted_decomposition_malicious_downselect_problems",
+            downselect_to_n_subproblems(5),
+            dependencies=[query_malicious_flatten_backdoors],
+            strong_model=strong_model,
+            weak_model=weak_model,
+        )
+    )
+
+    untrusted_decomposition_malicious_update_fields = pipeline.add_transformation_step(
+        "untrusted_decomposition_malicious_update_fields",
+        update_fields_for_decomposition,
+        dependencies=[untrusted_decomposition_malicious_downselect_problems],
+        strong_model=strong_model,
+        weak_model=weak_model,
+    )
+
     # Red Team:
     # * Generate plan for solution from code
     untrusted_decomposition_malicious_get_plan = pipeline.add_query_step(
@@ -975,7 +998,7 @@ def untrusted_decomposition_malicious_pipeline(
         strong_model,
         get_decomposition_from_code,
         extract_decomposition,
-        dependencies=[query_malicious_flatten_backdoors],
+        dependencies=[untrusted_decomposition_malicious_update_fields],
         team="red_untrusted_decomposition_malicious",
     )
 
@@ -1032,7 +1055,7 @@ def untrusted_decomposition_malicious_pipeline(
     untrusted_decomposition_malicious_unedited_plan_results = (
         pipeline.add_transformation_step(
             "untrusted_decomposition_malicious_unedited_plan_results",
-            create_output("untrusted_decomposition_malicious"),
+            create_output("untrusted_decomposition_malicious_unedited_plan"),
             dependencies=[
                 untrusted_decomposition_malicious_unedited_plan_suspiciousness,
                 untrusted_decomposition_malicious_unedited_plan_usefulness,
@@ -1069,26 +1092,24 @@ def untrusted_decomposition_malicious_pipeline(
             strong_model,
             weak_model,
             untrusted_decomposition_malicious_implement_subtask,
+            name="untrusted_decomposition_malicious_subtask",
+            team_suffix="untrusted_decomposition_malicious",
         )
     )
 
-    untrusted_decomposition_malicious_pre_rewrite_suspiciousness = (
-        pipeline.add_transformation_step(
-            "untrusted_decomposition_malicious_join_subtasks",
-            untrusted_join_subtasks,
-            dependencies=[untrusted_decomposition_malicious_subtask_suspiciousness],
-            strong_model=strong_model,
-            weak_model=weak_model,
-        )
+    untrusted_decomposition_malicious_join_subtasks = pipeline.add_transformation_step(
+        "untrusted_decomposition_malicious_join_subtasks",
+        untrusted_join_subtasks("untrusted_decomposition_malicious_subtask"),
+        dependencies=[untrusted_decomposition_malicious_subtask_suspiciousness],
+        strong_model=strong_model,
+        weak_model=weak_model,
     )
-
-    # TODO: improve the filter subtasks step
 
     untrusted_decomposition_malicious_filtered_decompositions = (
         pipeline.add_transformation_step(
             f"untrusted_decomposition_malicious_filtered_decompositions",
-            filter_subtasks_above_threshold(1.0),
-            dependencies=[untrusted_decomposition_malicious_pre_rewrite_suspiciousness],
+            filter_most_suspicious_subtask,
+            dependencies=[untrusted_decomposition_malicious_join_subtasks],
             strong_model=strong_model,
             weak_model=weak_model,
         )
@@ -1121,7 +1142,7 @@ def untrusted_decomposition_malicious_pipeline(
             pipeline,
             strong_model,
             weak_model,
-            untrusted_decomposition_malicious_unedited_plan_exploit_check,
+            untrusted_decomposition_malicious_edited_exploit_check,
             name="untrusted_decomposition_malicious_edited",
             team_suffix="untrusted_decomposition_malicious",
         )
@@ -1212,29 +1233,29 @@ def get_pipeline(
 
     if enable_decomposition:
         # TODO: Fix these
-        (
-            implement_subtask,
-            trusted_decomposition_benign_results,
-            trusted_decomposition_benign_edited_results,
-        ) = trusted_decomposition_benign_pipeline(
-            pipeline, load_data, strong_model, weak_model
-        )
-        (
-            trusted_decomposition_malicious_results,
-            trusted_decomposition_malicious_edited_results,
-        ) = trusted_decomposition_malicious_pipeline(
-            pipeline, implement_subtask, strong_model, weak_model
-        )
+        # (
+        #     implement_subtask,
+        #     trusted_decomposition_benign_results,
+        #     trusted_decomposition_benign_edited_results,
+        # ) = trusted_decomposition_benign_pipeline(
+        #     pipeline, load_data, strong_model, weak_model
+        # )
+        # (
+        #     trusted_decomposition_malicious_results,
+        #     trusted_decomposition_malicious_edited_results,
+        # ) = trusted_decomposition_malicious_pipeline(
+        #     pipeline, implement_subtask, strong_model, weak_model
+        # )
         # end TODO
         (
-            untrusted_decomposition_benign_unedited_plan_results,
-            untrusted_decomposition_benign_edited_results,
+            untrusted_decomp_benign_results,
+            untrusted_decomp_benign_edited_results,
         ) = untrusted_decomposition_benign_pipeline(
             pipeline, query_benign_untrusted_get_solutions, strong_model, weak_model
         )
         (
-            untrusted_decomposition_malicious_unedited_plan_results,
-            untrusted_decomposition_malicious_edited_results,
+            untrusted_decomp_malicious_results,
+            untrusted_decomp_malicious_edited_results,
         ) = untrusted_decomposition_malicious_pipeline(
             pipeline, query_malicious_flatten_backdoors, strong_model, weak_model
         )
@@ -1251,12 +1272,12 @@ def get_pipeline(
     if enable_decomposition:
         dependencies.extend(
             [
-                trusted_decomposition_benign_results,
-                trusted_decomposition_malicious_results,
-                untrusted_decomposition_benign_unedited_plan_results,
-                untrusted_decomposition_benign_edited_results,
-                untrusted_decomposition_malicious_unedited_plan_results,
-                untrusted_decomposition_malicious_edited_results,
+                # trusted_decomposition_benign_results,
+                # trusted_decomposition_malicious_results,
+                untrusted_decomp_benign_results,
+                untrusted_decomp_benign_edited_results,
+                untrusted_decomp_malicious_results,
+                untrusted_decomp_malicious_edited_results,
             ]
         )
     final_results = pipeline.add_transformation_step(

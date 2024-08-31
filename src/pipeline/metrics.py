@@ -12,3 +12,5 @@ def get_cost(pipeline, strong_model, weak_model):
         "w",
     ) as f:
         json.dump(pipeline.cost, f, indent=2)
+
+    print(pipeline.cost)

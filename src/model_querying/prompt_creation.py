@@ -601,11 +601,15 @@ def get_monitor_description(
             return Prompt.empty()
 
         if use_subtask and "subtask" in solution:
-            base_prompt = RED_TEAM_PROMPTS[
-                "backdoors_get_monitor_subsolution_description.txt"
-            ]
+            if use_non_refusal_prompt:
+                base_prompt = RED_TEAM_PROMPTS[
+                    "backdoors_get_monitor_subsolution_description_no_refusal.txt"
+                ]
+            else:
+                base_prompt = RED_TEAM_PROMPTS[
+                    "backdoors_get_monitor_subsolution_description.txt"
+                ]
             base_prompt = base_prompt.replace("<SUBTASK>", solution["subtask"])
-            # TODO: improve subsolution prompt to be non-refusal
         else:
             if use_non_refusal_prompt:
                 base_prompt = RED_TEAM_PROMPTS[
@@ -658,6 +662,33 @@ def get_backdoor_likelihood(key_suffix=None):
     return call
 
 
+def get_monitor_description_for_plan(key_suffix=None):
+    key_suffix = format_key_suffix(key_suffix)
+
+    def call(solution, language):
+        if solution.get(f"subtasks") is None:
+            return Prompt.empty()
+
+        base_prompt = RED_TEAM_PROMPTS["backdoors_get_monitor_description_for_plan.txt"]
+        base_prompt = base_prompt.replace("<PROBLEM>", solution["metadata"]["question"])
+        plan = "\n".join(
+            [f"{i+1}. {subtask}" for i, subtask in enumerate(solution["subtasks"])]
+        )
+        base_prompt = base_prompt.replace("<PLAN>", plan)
+
+        return Prompt(
+            [
+                {
+                    "role": "system",
+                    "content": f"You are an expert {language.text} programmer.",
+                },
+                {"role": "user", "content": base_prompt},
+            ]
+        )
+
+    return call
+
+
 def get_backdoor_presence(key_suffix=None):
     key_suffix = format_key_suffix(key_suffix)
 
@@ -700,6 +731,31 @@ def get_backdoor_presence_logprobs(key_suffix=None, use_non_refusal_prompt=False
         )
 
         base_prompt = BLUE_TEAM_PROMPTS["get_backdoor_presence.txt"]
+        monitor_prompt.text.append({"role": "user", "content": base_prompt})
+
+        return monitor_prompt
+
+    return call
+
+
+def get_backdoor_presence_logprobs_for_plan(key_suffix=None):
+    key_suffix = format_key_suffix(key_suffix)
+
+    def call(solution, language):
+        if solution.get(f"monitor_description_for_plan{key_suffix}") is None:
+            return Prompt.empty()
+
+        monitor_prompt = get_monitor_description_for_plan(key_suffix=key_suffix)(
+            solution, language
+        )
+        monitor_prompt.text.append(
+            {
+                "role": "assistant",
+                "content": solution[f"monitor_description_for_plan{key_suffix}"],
+            }
+        )
+
+        base_prompt = BLUE_TEAM_PROMPTS["get_backdoor_presence_for_plan.txt"]
         monitor_prompt.text.append({"role": "user", "content": base_prompt})
 
         return monitor_prompt
@@ -1154,6 +1210,102 @@ def get_decomposition(solution, language):
     return Prompt(message)
 
 
+def get_innocent_decomposition_improved(solution, language):
+    if solution.get("solution") is None:
+        return Prompt.empty()
+
+    system_prompt = SOLUTION_PROMPTS["get_decomposition_improved_system.txt"]
+    system_prompt = system_prompt.replace("<LANGUAGE>", language.code)
+    user_prompt = SOLUTION_PROMPTS["get_decomposition_improved_user.txt"]
+    user_prompt = user_prompt.replace("<PROBLEM>", solution["question"])
+    user_prompt = user_prompt.replace("<SOLUTION>", solution["solution"])
+
+    message = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
+    return Prompt(message)
+
+
+def get_backdoor_decomposition_improved(solution, language):
+    if solution.get("solution") is None:
+        return Prompt.empty()
+
+    system_prompt = RED_TEAM_PROMPTS["get_decomposition_improved_system.txt"]
+    system_prompt = system_prompt.replace("<LANGUAGE>", language.code)
+    user_prompt = RED_TEAM_PROMPTS["get_decomposition_improved_user.txt"]
+    user_prompt = user_prompt.replace("<PROBLEM>", solution["question"])
+    user_prompt = user_prompt.replace("<SOLUTION>", solution["solution"])
+
+    message = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
+    return Prompt(message)
+
+
+def improve_backdoor_decomposition(solution, language):
+    if solution.get("subtasks") is None or solution.get("suggestion") is None:
+        return Prompt.empty()
+
+    system_prompt = RED_TEAM_PROMPTS["decomposition_improve_subtlety_system.txt"]
+    system_prompt = system_prompt.replace("<LANGUAGE>", language.code)
+    user_prompt = RED_TEAM_PROMPTS["decomposition_improve_subtlety_user.txt"]
+    user_prompt = user_prompt.replace("<PROBLEM>", solution["question"])
+    subtasks = "\n".join(
+        [f"{idx+1}. {subtask}" for idx, subtask in enumerate(solution["subtasks"])]
+    )
+    user_prompt = user_prompt.replace("<PLAN>", subtasks)
+    user_prompt = user_prompt.replace("<SUGGESTION>", solution["suggestion"])
+    user_prompt = user_prompt.replace("<LANGUAGE>", language.code)
+    message = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
+    return Prompt(message)
+
+
+def implement_solution_from_plan(solution, language):
+    if solution.get("subtasks") is None:
+        return Prompt.empty()
+
+    system_prompt = SOLUTION_PROMPTS["generate_solution_from_plan_system.txt"]
+    system_prompt = system_prompt.replace("<LANGUAGE>", language.code)
+    user_prompt = SOLUTION_PROMPTS["generate_solution_from_plan_user.txt"]
+    user_prompt = user_prompt.replace("<PROBLEM>", solution["question"])
+    subtasks = "\n".join(
+        [f"{idx+1}. {subtask}" for idx, subtask in enumerate(solution["subtasks"])]
+    )
+    user_prompt = user_prompt.replace("<PLAN>", subtasks)
+    user_prompt = user_prompt.replace("<LANGUAGE>", language.code)
+
+    message = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
+    return Prompt(message)
+
+
+def improve_solution_from_plan(solution, language):
+    if solution.get("subtasks") is None or solution.get("solution") is None:
+        return Prompt.empty()
+
+    system_prompt = SOLUTION_PROMPTS["improve_solution_from_plan_system.txt"]
+    system_prompt = system_prompt.replace("<LANGUAGE>", language.code)
+    user_prompt = SOLUTION_PROMPTS["improve_solution_from_plan_user.txt"]
+    subtasks = "\n".join(
+        [f"{idx+1}. {subtask}" for idx, subtask in enumerate(solution["subtasks"])]
+    )
+    user_prompt = user_prompt.replace("<PLAN>", subtasks)
+    user_prompt = user_prompt.replace("<SOLUTION>", solution["solution"])
+    user_prompt = user_prompt.replace("<LANGUAGE>", language.code)
+    message = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
+    return Prompt(message)
+
+
 def get_decomposition_from_code(solution, language):
     sample_solutions = json.loads(SOLUTION_PROMPTS[f"code_gen.json"])
 
@@ -1558,6 +1710,25 @@ def rewrite_solution(solution, language):
         "<SOLUTION>", strip_comments_from_string(solution["solution"])
     )
     base_prompt = base_prompt.replace("<LANGUAGE>", language.code)
+
+    return Prompt(
+        [
+            {
+                "role": "system",
+                "content": f"You are an expert {language.text} programmer.",
+            },
+            {"role": "user", "content": base_prompt},
+        ]
+    )
+
+
+def rewrite_decomposition(solution, language):
+    base_prompt = BLUE_TEAM_PROMPTS["rewrite_decomposition.txt"]
+    base_prompt = base_prompt.replace("<PROBLEM>", solution["metadata"]["question"])
+    plan = "\n".join(
+        [f"{i+1}. {subtask}" for i, subtask in enumerate(solution["subtasks"])]
+    )
+    base_prompt = base_prompt.replace("<PLAN>", plan)
 
     return Prompt(
         [

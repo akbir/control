@@ -4,7 +4,9 @@ from src.model_querying.prompt_creation import (
     get_backdoor_likelihood,
     get_backdoor_presence,
     get_backdoor_presence_logprobs,
+    get_backdoor_presence_logprobs_for_plan,
     get_monitor_description,
+    get_monitor_description_for_plan,
     get_suspiciousness,
 )
 from src.model_querying.solution_extraction import (
@@ -13,6 +15,7 @@ from src.model_querying.solution_extraction import (
     extract_backdoor_presence_logprobs,
     extract_backdoor_presence_logprobs_sampling,
     extract_monitor_description,
+    extract_monitor_description_for_plan,
     extract_suspiciousness,
 )
 from src.pipeline.transformations import get_backdoor_suspicion_score, strip_comments
@@ -284,3 +287,42 @@ def add_basic_scalar_blue_team_monitor_to_pipeline(
         weak_model=weak_model,
     )
     return get_backdoor_likelihood_sampling_step
+
+
+def add_plan_blue_team_monitor_to_pipeline(
+    pipeline,
+    strong_model,
+    weak_model,
+    prev_step,
+    name=None,
+    team_suffix=None,
+    use_cache=True,
+):
+    suffix = format_key_suffix(name)
+    team = "blue"
+    if team_suffix:
+        team += format_key_suffix(team_suffix)
+
+    get_monitor_description_step = pipeline.add_query_step(
+        f"get_monitor_description_for_plan{suffix}",
+        weak_model,
+        get_monitor_description_for_plan(key_suffix=suffix),
+        extract_monitor_description_for_plan(key_suffix=suffix),
+        dependencies=[prev_step],
+        team=team,
+        use_cache=use_cache,
+    )
+
+    get_backdoor_likelihood_step = pipeline.add_query_step(
+        f"get_backdoor_likelihood_for_plan{suffix}",
+        weak_model,
+        get_backdoor_presence_logprobs_for_plan(key_suffix=suffix),
+        extract_backdoor_presence_logprobs(key_suffix=suffix),
+        dependencies=[get_monitor_description_step],
+        logprobs=20,
+        max_tokens=1,
+        team=team,
+        use_cache=use_cache,
+    )
+
+    return get_backdoor_likelihood_step
