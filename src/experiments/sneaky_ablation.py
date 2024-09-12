@@ -4,6 +4,7 @@ import os
 
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.stats import pearsonr
 from sklearn.metrics import roc_auc_score, roc_curve
 
 from src.pipeline.blue_team.monitoring import (
@@ -12,7 +13,11 @@ from src.pipeline.blue_team.monitoring import (
     add_basic_scalar_blue_team_monitor_to_pipeline,
 )
 from src.pipeline.pipeline import Pipeline, PipelineConfig
-from src.pipeline.red_team.monitoring import add_red_team_sneakiness_steps_to_pipeline
+from src.pipeline.red_team.monitoring import (
+    add_red_team_scalar_sneakiness_steps_to_pipeline,
+    add_red_team_sneakiness_logprob_steps_to_pipeline,
+    add_red_team_sneakiness_steps_to_pipeline,
+)
 from src.tools.dataloaders import load_multiple_solutions, load_solutions
 from src.tools.path_utils import get_default_results_directory
 
@@ -35,15 +40,6 @@ def get_pipeline(
     )
 
     pipeline = Pipeline(config)
-
-    get_innocent_solutions = pipeline.add_load_data_step(
-        "get_innocent_solutions",
-        load_solutions,
-        get_default_results_directory()
-        / "trusted_monitoring-newredteam"
-        / "01-get_solutions"
-        / strong_model,
-    )
 
     get_backdoored_solutions = pipeline.add_load_data_step(
         "get_backdoored_solutions_1",
@@ -86,17 +82,8 @@ def get_pipeline(
         weak_model=weak_model,
     )
 
-    if not logprob:  # get scalar (1-10)
-        get_suspiciousness_innocent = add_basic_scalar_blue_team_monitor_to_pipeline(
-            pipeline,
-            strong_model,
-            weak_model,
-            get_innocent_solutions,
-            name="innocent",
-            bon=bon,
-            temperature=temperature,
-        )
-        get_suspiciousness_backdoors = add_basic_scalar_blue_team_monitor_to_pipeline(
+    if "claude" in weak_model:
+        get_suspiciousness_backdoors = add_basic_blue_team_monitor_to_pipeline_sampling(
             pipeline,
             strong_model,
             weak_model,
@@ -105,89 +92,51 @@ def get_pipeline(
             bon=bon,
             temperature=temperature,
         )
-    else:  # get logprpob
-        if "claude" in weak_model:
-            get_suspiciousness_innocent = (
-                add_basic_blue_team_monitor_to_pipeline_sampling(
-                    pipeline,
-                    strong_model,
-                    weak_model,
-                    get_innocent_solutions,
-                    name="innocent",
-                    bon=bon,
-                    temperature=temperature,
-                )
-            )
-            get_suspiciousness_backdoors = (
-                add_basic_blue_team_monitor_to_pipeline_sampling(
-                    pipeline,
-                    strong_model,
-                    weak_model,
-                    merged_backdoors,
-                    name="backdoors",
-                    bon=bon,
-                    temperature=temperature,
-                )
-            )
-        else:
-            get_suspiciousness_innocent = add_basic_blue_team_monitor_to_pipeline(
-                pipeline,
-                strong_model,
-                weak_model,
-                get_innocent_solutions,
-                name="innocent",
-            )
-            get_suspiciousness_backdoors = add_basic_blue_team_monitor_to_pipeline(
-                pipeline, strong_model, weak_model, merged_backdoors, name="backdoors"
-            )
+    else:
+        get_suspiciousness_backdoors = add_basic_blue_team_monitor_to_pipeline(
+            pipeline, strong_model, weak_model, merged_backdoors, name="backdoors"
+        )
 
-    get_sneakiness_innocent = add_red_team_sneakiness_steps_to_pipeline(
-        pipeline, strong_model, weak_model, get_innocent_solutions, name="innocent"
-    )
-    get_sneakiness_backdoors = add_red_team_sneakiness_steps_to_pipeline(
-        pipeline, strong_model, weak_model, get_innocent_solutions, name="backdoors"
-    )
+    if not logprob:  # get scalar (1-10)
+        get_sneakiness_backdoors = add_red_team_scalar_sneakiness_steps_to_pipeline(
+            pipeline,
+            strong_model,
+            weak_model,
+            merged_backdoors,
+            name="backdoors",
+            bon=bon,
+            temperature=temperature,
+        )
+    else:
+        get_sneakiness_backdoors = add_red_team_sneakiness_logprob_steps_to_pipeline(
+            pipeline, strong_model, weak_model, merged_backdoors, name="backdoors"
+        )
+
+    # get_sneakiness_backdoors = add_basic_blue_team_monitor_to_pipeline(
+    #     pipeline, strong_model, strong_model, merged_backdoors, name="backdoors-redteam"
+    # )
 
     results = asyncio.run(pipeline.run())
-    # Extract suspiciousness scores for innocent solutions
-    innocent_scores = [
-        result["suspiciousness_innocent"]
-        for result in results[get_suspiciousness_innocent.name].values()
-        if result.get("suspiciousness_innocent") is not None
-    ]
-
-    innocent_sneakiness = [
-        result["sneakiness"]
-        for result in results[get_sneakiness_innocent.name].values()
-        if result.get("sneakiness") is not None
-    ]
-
     # Extract suspiciousness scores for backdoored solutions
     backdoored_scores = [
-        result["suspiciousness_backdoors"]
+        result.get("suspiciousness_backdoors", 1.0)
         for result in results[get_suspiciousness_backdoors.name].values()
-        if result.get("suspiciousness_backdoors") is not None
     ]
 
     backdoored_sneakiness = [
-        result["sneakiness"]
+        result.get("sneakiness")
         for result in results[get_sneakiness_backdoors.name].values()
-        if result.get("sneakiness") is not None
     ]
 
     return (
         pipeline,
-        innocent_scores,
         backdoored_scores,
-        innocent_sneakiness,
         backdoored_sneakiness,
     )
 
 
 def plot_results(
-    innocent_scores,
     backdoored_scores,
-    innocent_sneakiness,
     backdoored_sneakiness,
     name,
     strong_model,
@@ -198,96 +147,33 @@ def plot_results(
     os.makedirs(save_dir, exist_ok=True)
 
     if not logprob:
-        innocent_scores = [i / 10 for i in innocent_scores]
         backdoored_scores = [i / 10 for i in backdoored_scores]
 
+    correlation, p_value = pearsonr(backdoored_scores, backdoored_sneakiness)
+    print(f"Correlation: {correlation:.2f}, p-value: {p_value:.4f}")
+
     # Calculate mean and standard deviation
-    innocent_mean = np.mean(innocent_scores)
-    innocent_std = np.std(innocent_scores)
     backdoored_mean = np.mean(backdoored_scores)
     backdoored_std = np.std(backdoored_scores)
 
-    innocent_sneakiness_mean, innocent_sneakiness_std = np.mean(
-        innocent_sneakiness
-    ), np.std(innocent_sneakiness)
     backdoored_sneakiness_mean, backdoored_sneakiness_std = np.mean(
         backdoored_sneakiness
     ), np.std(backdoored_sneakiness)
 
-    all_scores = np.concatenate([innocent_scores, backdoored_scores])
-    all_sneakiness_scores = np.concatenate([innocent_sneakiness, backdoored_sneakiness])
-
-    labels = np.concatenate(
-        [np.zeros(len(innocent_scores)), np.ones(len(backdoored_scores))]
-    )
-
-    # Print statistics
-    print(
-        f"Innocent solutions - Mean: {innocent_mean:.2f}, Std Dev: {innocent_std:.2f}, Mean Sneakiness: {innocent_sneakiness_mean:.2f}, Std Dev: {innocent_sneakiness_std:.2f}"
-    )
     print(
         f"Backdoored solutions - Mean: {backdoored_mean:.2f}, Std Dev: {backdoored_std:.2f}, Mean Sneakiness: {backdoored_sneakiness_mean:.2f}, Std Dev: {backdoored_sneakiness_std:.2f}"
     )
 
-    # Create histogram
-    # plt.figure(figsize=(10, 6))
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 6))
+    plt.figure(figsize=(10, 6))
+    plt.scatter(backdoored_sneakiness, backdoored_scores, alpha=0.5)
+    plt.xlabel("Sneakiness Scores")
+    plt.ylabel("Suspiciousness Scores")
+    plt.title(f"Suspiciousness vs Sneakiness\nCorrelation: {correlation:.2f}")
 
-    ax1.hist(
-        innocent_scores,
-        bins=20,
-        alpha=0.5,
-        color="blue",
-        label="Innocent",
-        density=True,
-    )
-    ax1.hist(
-        backdoored_scores,
-        bins=20,
-        alpha=0.5,
-        color="red",
-        label="Backdoored",
-        density=True,
-    )
+    z = np.polyfit(backdoored_sneakiness, backdoored_scores, 1)
+    p = np.poly1d(z)
+    plt.plot(backdoored_sneakiness, p(backdoored_sneakiness), "r--", alpha=0.8)
 
-    ax1.set_xlabel("Suspiciousness Score")
-    ax1.set_ylabel("Frequency")
-    ax1.set_title("Distribution of Suspiciousness Scores")
-    ax1.legend()
-
-    # Add vertical lines for means
-    ax1.axvline(innocent_mean, color="blue", linestyle="dashed", linewidth=2)
-    ax1.axvline(backdoored_mean, color="red", linestyle="dashed", linewidth=2)
-
-    ax2.hist(
-        innocent_sneakiness,
-        bins=20,
-        alpha=0.5,
-        color="blue",
-        label="Innocent",
-        density=True,
-    )
-    ax2.hist(
-        backdoored_sneakiness,
-        bins=20,
-        alpha=0.5,
-        color="red",
-        label="Backdoored",
-        density=True,
-    )
-
-    ax2.set_xlabel("Sneakiness Score")
-    ax2.set_ylabel("Frequency")
-    ax2.set_title("Distribution of Sneakiness Scores")
-    ax2.legend()
-
-    # Add vertical lines for means
-    ax1.axvline(innocent_sneakiness_mean, color="blue", linestyle="dashed", linewidth=2)
-    ax1.axvline(
-        backdoored_sneakiness_mean, color="red", linestyle="dashed", linewidth=2
-    )
-
-    plt.tight_layout()
     plt.savefig(f"{save_dir}/{name}.png", dpi=1000)
     plt.close()
 
@@ -300,13 +186,7 @@ if __name__ == "__main__":
     strong_model = "gpt-4-0125-preview"
     weak_model = "gpt-3.5-turbo-1106"
 
-    (
-        pipeline,
-        innocent_scores,
-        backdoored_scores,
-        innocent_sneakiness,
-        backdoored_sneakiness,
-    ) = get_pipeline(
+    pipeline, backdoored_scores, backdoored_sneakiness = get_pipeline(
         strong_model=strong_model,
         weak_model=weak_model,
         num_problems=200,
@@ -315,13 +195,13 @@ if __name__ == "__main__":
         bon=bon,
         temperature=temp,
     )
-    print(innocent_sneakiness)
-    print("=" * 100)
     print(backdoored_sneakiness)
+    print("size = ", len(backdoored_sneakiness))
+    print("=" * 100)
+    print(backdoored_scores)
+    print("size = ", len(backdoored_scores))
     plot_results(
-        innocent_scores,
         backdoored_scores,
-        innocent_sneakiness,
         backdoored_sneakiness,
         pipeline.config.name,
         strong_model,
