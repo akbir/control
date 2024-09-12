@@ -1,4 +1,6 @@
 from src.model_querying.prompt_creation import (
+    evaluate_backdoor_sneakiness_out_of_7,
+    evaluate_backdoor_sneakiness_out_of_15,
     get_backdoor_likelihood,
     get_backdoor_presence,
     get_monitor_description,
@@ -7,10 +9,51 @@ from src.model_querying.prompt_creation import (
 from src.model_querying.solution_extraction import (
     extract_backdoor_likelihood,
     extract_backdoor_presence,
+    extract_backdoor_sneakiness,
     extract_monitor_description,
     extract_no_comments_code,
 )
-from src.pipeline.transformations import get_backdoor_suspicion_score
+from src.pipeline.transformations import (
+    evaluate_backdoor_sneakiness,
+    get_backdoor_suspicion_score,
+)
+
+
+def add_red_team_sneakiness_steps_to_pipeline(
+    pipeline, strong_model, weak_model, prev_step, name=None, use_modified_solution=True
+):
+    if name is not None:
+        suffix = f"_{name}"
+    else:
+        suffix = ""
+
+    evaluate_backdoor_sneakiness_out_of_15_step = pipeline.add_query_step(
+        "evaluate_backdoor_sneakiness_out_of_15_step" + suffix,
+        strong_model,
+        evaluate_backdoor_sneakiness_out_of_15,
+        extract_backdoor_sneakiness,
+        dependencies=[prev_step],
+        team="red",
+    )
+    evaluate_backdoor_sneakiness_out_of_7_step = pipeline.add_query_step(
+        "evaluate_backdoor_sneakiness_out_of_7_step" + suffix,
+        strong_model,
+        evaluate_backdoor_sneakiness_out_of_7,
+        extract_backdoor_sneakiness,
+        dependencies=[prev_step],
+        team="red",
+    )
+    evaluate_backdoor_sneakiness_step = pipeline.add_transformation_step(
+        "evaluate_backdoor_sneakiness" + suffix,
+        evaluate_backdoor_sneakiness,
+        dependencies=[
+            evaluate_backdoor_sneakiness_out_of_15_step,
+            evaluate_backdoor_sneakiness_out_of_7_step,
+        ],
+        strong_model=strong_model,
+        weak_model=weak_model,
+    )
+    return evaluate_backdoor_sneakiness_step
 
 
 def add_red_team_monitoring_steps_to_pipeline(
