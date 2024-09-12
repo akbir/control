@@ -46,28 +46,23 @@ def get_pipeline(
         load_multiple_solutions,
         get_default_results_directory()
         / "trusted_monitoring-newredteam"
-        / "37-final_backdoors"
+        / "38-final_backdoors"
         / f"{strong_model}+gpt-3.5-turbo-1106",
     )
 
-    get_backdoored_solutions_2 = pipeline.add_load_data_step(
-        "get_backdoored_solutions_2",
-        load_multiple_solutions,
-        get_default_results_directory()
-        / "trusted_editing-newredteam"
-        / "37-final_backdoors"
-        / f"{strong_model}+gpt-3.5-turbo-1106",
-    )
-
-    def merge(x, y):
+    def merge(*args):
         merged = {}
-        for key in x.keys():
-            merged[key] = x[key]
-        # for key in y.keys():
-        #     if key in x.keys():
-        #         merged[key].extend(y[key])
-        #     else:
-        #         merged[key] = y[key]
+        for x in args:
+            for key in x.keys():
+                for value in x[key]:
+                    if not value.get("metadata"):
+                        value["metadata"] = {
+                            k: v for k, v in value.items() if k != "metadata"
+                        }
+                if key in merged.keys():
+                    merged[key].extend(x[key])
+                else:
+                    merged[key] = x[key]
         return {
             f"{key}-{i}": value
             for key, value_list in merged.items()
@@ -77,7 +72,7 @@ def get_pipeline(
     merged_backdoors = pipeline.add_transformation_step(
         "merged_backdoors",
         merge,
-        dependencies=[get_backdoored_solutions, get_backdoored_solutions],
+        dependencies=[get_backdoored_solutions],
         strong_model=strong_model,
         weak_model=weak_model,
     )
@@ -111,10 +106,6 @@ def get_pipeline(
         get_sneakiness_backdoors = add_red_team_sneakiness_logprob_steps_to_pipeline(
             pipeline, strong_model, weak_model, merged_backdoors, name="backdoors"
         )
-
-    # get_sneakiness_backdoors = add_basic_blue_team_monitor_to_pipeline(
-    #     pipeline, strong_model, strong_model, merged_backdoors, name="backdoors-redteam"
-    # )
 
     results = asyncio.run(pipeline.run())
     # Extract suspiciousness scores for backdoored solutions

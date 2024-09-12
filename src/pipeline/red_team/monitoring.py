@@ -22,7 +22,7 @@ from src.pipeline.transformations import (
     get_backdoor_suspicion_score,
     strip_comments,
 )
-from src.tools.string_manipulation import extract_sneakiness_logprobs, format_key_suffix
+from src.tools.string_manipulation import format_key_suffix
 
 
 def add_red_team_sneakiness_steps_to_pipeline(
