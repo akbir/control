@@ -195,6 +195,97 @@ def add_red_team_sneakiness_steps_to_pipeline(
     return evaluate_backdoor_sneakiness_step
 
 
+def join_by_problem(data):
+    joined_data = {}
+    for key, value in data.items():
+        problem_id = "-".join(key.split("-")[:-1])
+        if problem_id not in joined_data:
+            joined_data[problem_id] = []
+        joined_data[problem_id].append(value)
+    return joined_data
+
+
+def average_sneakiness(data, joined_data):
+    for key, value in data.items():
+        scores = [
+            i["sneakiness"] for i in joined_data.get(key) if i["sneakiness"] is not None
+        ]
+        if scores is None or len(scores) == 0:
+            estimated_prob = None
+        else:
+            estimated_prob = np.mean(scores)
+        data[key]["sneakiness"] = estimated_prob
+        data[key]["sneakiness_scores"] = scores
+    return data
+
+
+def add_red_team_sneakiness_logprob_steps_to_pipeline(
+    pipeline, strong_model, weak_model, prev_step, name=None, use_modified_solution=True
+):
+    if name is not None:
+        suffix = f"_{name}"
+    else:
+        suffix = ""
+
+    evaluate_backdoor_sneakiness_step = pipeline.add_query_step(
+        "evaluate_backdoor_sneakiness_logprob_step" + suffix,
+        strong_model,
+        evaluate_backdoor_sneakiness_logprobs,
+        extract_sneakiness_logprobs,
+        dependencies=[prev_step],
+        logprobs=20,
+        max_tokens=1,
+        team="red",
+    )
+
+    return evaluate_backdoor_sneakiness_step
+
+
+def add_red_team_scalar_sneakiness_steps_to_pipeline(
+    pipeline,
+    strong_model,
+    weak_model,
+    prev_step,
+    name=None,
+    use_modified_solution=True,
+    bon=5,
+    temperature=0.2,
+):
+    if name is not None:
+        suffix = f"_{name}"
+    else:
+        suffix = ""
+
+    evaluate_backdoor_sneakiness_step = pipeline.add_query_step(
+        "evaluate_backdoor_sneakiness_scalar_step" + suffix,
+        strong_model,
+        evaluate_backdoor_sneakiness_scalar,
+        extract_backdoor_sneakiness_scalar,
+        dependencies=[prev_step],
+        team="red",
+        bon=bon,
+        temperature=temperature,
+    )
+    if bon > 1:
+        join_monitors = pipeline.add_transformation_step(
+            "join_monitors" + suffix,
+            join_by_problem,
+            dependencies=[evaluate_backdoor_sneakiness_step],
+            strong_model=strong_model,
+            weak_model=weak_model,
+        )
+        get_backdoor_likelihood_sampling_step = pipeline.add_transformation_step(
+            f"get_backdoor_likelihood_sampling{suffix}",
+            average_sneakiness,
+            dependencies=[prev_step, join_monitors],
+            strong_model=strong_model,
+            weak_model=weak_model,
+        )
+        return get_backdoor_likelihood_sampling_step
+    else:
+        return evaluate_backdoor_sneakiness_step
+
+
 def add_red_team_monitoring_steps_to_pipeline(
     pipeline,
     strong_model,
