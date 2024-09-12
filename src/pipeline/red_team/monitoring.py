@@ -152,6 +152,47 @@ def add_red_team_scalar_sneakiness_steps_to_pipeline(
 
 from src.pipeline.transformations import get_backdoor_suspicion_score, strip_comments
 from src.tools.string_manipulation import format_key_suffix
+from src.pipeline.transformations import (
+    evaluate_backdoor_sneakiness,
+    get_backdoor_suspicion_score,
+)
+
+
+def add_red_team_sneakiness_steps_to_pipeline(
+    pipeline, strong_model, weak_model, prev_step, name=None, use_modified_solution=True
+):
+    if name is not None:
+        suffix = f"_{name}"
+    else:
+        suffix = ""
+
+    evaluate_backdoor_sneakiness_out_of_15_step = pipeline.add_query_step(
+        "evaluate_backdoor_sneakiness_out_of_15_step" + suffix,
+        strong_model,
+        evaluate_backdoor_sneakiness_out_of_15,
+        extract_backdoor_sneakiness,
+        dependencies=[prev_step],
+        team="red",
+    )
+    evaluate_backdoor_sneakiness_out_of_7_step = pipeline.add_query_step(
+        "evaluate_backdoor_sneakiness_out_of_7_step" + suffix,
+        strong_model,
+        evaluate_backdoor_sneakiness_out_of_7,
+        extract_backdoor_sneakiness,
+        dependencies=[prev_step],
+        team="red",
+    )
+    evaluate_backdoor_sneakiness_step = pipeline.add_transformation_step(
+        "evaluate_backdoor_sneakiness" + suffix,
+        evaluate_backdoor_sneakiness,
+        dependencies=[
+            evaluate_backdoor_sneakiness_out_of_15_step,
+            evaluate_backdoor_sneakiness_out_of_7_step,
+        ],
+        strong_model=strong_model,
+        weak_model=weak_model,
+    )
+    return evaluate_backdoor_sneakiness_step
 
 
 def add_red_team_monitoring_steps_to_pipeline(
