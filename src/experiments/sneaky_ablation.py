@@ -111,23 +111,7 @@ def get_pipeline(
             pipeline, strong_model, weak_model, merged_backdoors, name="backdoors"
         )
 
-    results = asyncio.run(pipeline.run())
-    # Extract suspiciousness scores for backdoored solutions
-    backdoored_scores = [
-        result.get("suspiciousness_backdoors", 1.0)
-        for result in results[get_suspiciousness_backdoors.name].values()
-    ]
-
-    backdoored_sneakiness = [
-        result.get("sneakiness")
-        for result in results[get_sneakiness_backdoors.name].values()
-    ]
-
-    return (
-        pipeline,
-        backdoored_scores,
-        backdoored_sneakiness,
-    )
+    return pipeline, get_suspiciousness_backdoors.name, get_sneakiness_backdoors.name
 
 
 def plot_results(
@@ -181,7 +165,11 @@ if __name__ == "__main__":
     strong_model = "gpt-4-0125-preview"
     weak_model = "gpt-3.5-turbo-1106"
 
-    pipeline, backdoored_scores, backdoored_sneakiness = get_pipeline(
+    (
+        pipeline,
+        get_suspiciousness_backdoors_step,
+        get_sneakiness_backdoors_step,
+    ) = get_pipeline(
         strong_model=strong_model,
         weak_model=weak_model,
         num_problems=200,
@@ -190,11 +178,17 @@ if __name__ == "__main__":
         bon=bon,
         temperature=temp,
     )
-    print(backdoored_sneakiness)
-    print("size = ", len(backdoored_sneakiness))
-    print("=" * 100)
-    print(backdoored_scores)
-    print("size = ", len(backdoored_scores))
+
+    results = asyncio.run(pipeline.run())
+    backdoored_scores = [
+        result.get("suspiciousness_backdoors", 1.0)
+        for result in results[get_suspiciousness_backdoors_step].values()
+    ]
+    backdoored_sneakiness = [
+        result.get("sneakiness")
+        for result in results[get_sneakiness_backdoors_step].values()
+    ]
+
     plot_results(
         backdoored_scores,
         backdoored_sneakiness,
