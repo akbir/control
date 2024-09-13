@@ -498,13 +498,6 @@ def extract_backdoor_presence_logprobs(key_suffix=None):
 
 
 def extract_sneakiness_logprobs(response, language):
-    # if key_suffix:
-    #     if key_suffix[0] != "_":
-    #         key_suffix = f"_{key_suffix}"
-    # else:
-    #     key_suffix = ""
-
-    # def call(response, language):
     response = response.copy()
     try:
         logprobs = response["response"]["logprobs"][0]

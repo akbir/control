@@ -41,6 +41,10 @@ def get_pipeline(
 
     pipeline = Pipeline(config)
 
+    assert os.path.exists(
+        get_default_results_directory()
+        + "/trusted_monitoring-newredteam/38-final_backdoors"
+    )
     get_backdoored_solutions = pipeline.add_load_data_step(
         "get_backdoored_solutions_1",
         load_multiple_solutions,
