@@ -731,6 +731,18 @@ def extract_decomposition(response, language):
                 subtask = parser.find(f"step_{i}")
             elif f"<subtask_{i}>" in gen:
                 subtask = parser.find(f"subtask_{i}")
+            elif f"<step {i}>" in gen:
+                subtask = parser.find(f"step {i}")
+            elif f"<subtask {i}>" in gen:
+                subtask = parser.find(f"subtask {i}")
+            elif f"<Step_{i}>" in gen:
+                subtask = parser.find(f"Step_{i}")
+            elif f"<Subtask_{i}>" in gen:
+                subtask = parser.find(f"Subtask_{i}")
+            elif f"<Step {i}>" in gen:
+                subtask = parser.find(f"Step {i}")
+            elif f"<Subtask {i}>" in gen:
+                subtask = parser.find(f"Subtask {i}")
             else:
                 continue
             if subtask is not None:
