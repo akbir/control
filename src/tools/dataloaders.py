@@ -26,7 +26,9 @@ def load_prompts(prompt_type):
     return prompts
 
 
-def load_problem_subset(subset, require_solutions=False, problem_ids=None):
+def load_problem_subset(
+    subset, require_solutions=False, problem_ids=None, skip_problems=0
+):
     def load_problems(dir, num_problems=None):
         if problem_ids:
             problem_dirs = problem_ids
@@ -34,6 +36,8 @@ def load_problem_subset(subset, require_solutions=False, problem_ids=None):
             problem_dirs = os.listdir(dir)
         problems = {}
         added = 0
+        skipped = 0
+        logger.info(f"Skipping the first {skip_problems} problems.")
         for problem_dir in problem_dirs:
             problem_path = dir / problem_dir
             problem = {}
@@ -70,6 +74,11 @@ def load_problem_subset(subset, require_solutions=False, problem_ids=None):
 
             problem["uid"] = problem_dir
             problems[problem_dir] = problem
+
+            if skipped < skip_problems:
+                skipped += 1
+                continue
+
             added += 1
             if added >= num_problems:
                 break

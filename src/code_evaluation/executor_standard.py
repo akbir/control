@@ -2,16 +2,15 @@ import ast
 import builtins
 import contextlib
 import io
-import json
 import logging
-import os
 import sys
-from concurrent.futures import TimeoutError
+from concurrent.futures import TimeoutError as FutureTimeoutError
 from copy import deepcopy
 from io import StringIO
 
 import multiprocess
 from pebble import ProcessPool
+from pebble.common import ProcessExpired
 from tqdm.auto import tqdm
 
 from .test_results import Solution
@@ -147,7 +146,7 @@ def check(input, actual, expected, custom_evaluator=None):
     return flag
 
 
-def run_solutions(solutions, num_threads=32):
+def run_solutions(solutions, num_threads=32, batch_size=50):
     results = {}
     # skip already executed solutions
     filtered_solutions = []
@@ -158,27 +157,35 @@ def run_solutions(solutions, num_threads=32):
         else:
             filtered_solutions.append(solution)
     solutions = filtered_solutions
+    preds = []
+    for batch_start in tqdm(range(0, len(solutions), batch_size), leave=False):
+        batch_end = min(batch_start + batch_size, len(solutions))
+        batch_solutions = solutions[batch_start:batch_end]
+        with ProcessPool(num_threads) as p:
+            # set timeout to 2 seconds
+            async_results = []
+            for solution in batch_solutions:
+                for case in solution.test_cases:
+                    async_results.append(
+                        p.schedule(
+                            worker, (solution.solution, case["input"]), timeout=2
+                        )
+                    )
 
-    with ProcessPool(num_threads) as p:
-        # set timeout to 2 seconds
-        async_results = []
-        for solution in solutions:
-            for case in solution.test_cases:
-                async_results.append(
-                    p.schedule(worker, (solution.solution, case["input"]), timeout=2)
-                )
-
-        preds = []
-        for result in tqdm(async_results, disable=len(async_results) == 0):
-            pred = "ERROR"
-            try:
-                pred = result.result(timeout=2)
-            except multiprocess.TimeoutError:
-                pred = "ERROR Execution time of the program exceeds 2 second, terminate execution."
-            except Exception as e:
-                error = e
-                pred = f"ERROR {error}"
-            preds.append(pred)
+            for result in tqdm(
+                async_results, disable=len(async_results) == 0, leave=False
+            ):
+                pred = "ERROR"
+                try:
+                    pred = result.result(timeout=2)
+                except FutureTimeoutError:
+                    pred = "ERROR Execution time of the program exceeds 2 second, terminate execution."
+                except ProcessExpired as e:
+                    pred = f"ERROR Process expired: {e}"
+                except Exception as e:
+                    error = e
+                    pred = f"ERROR {error}"
+                preds.append(pred)
 
     pred_idx = 0
     with ProcessPool(num_threads) as p:
@@ -208,12 +215,10 @@ def run_solutions(solutions, num_threads=32):
                 pred_idx += 1
 
         flags = []
-        for result in tqdm(async_results, disable=len(async_results) == 0):
+        for result in tqdm(async_results, disable=len(async_results) == 0, leave=False):
             flag = "[error] default pred"
             try:
                 flag = result.result(timeout=2)
-            except multiprocess.TimeoutError:
-                flag = False
             except Exception as e:
                 flag = False
             flags.append(flag)

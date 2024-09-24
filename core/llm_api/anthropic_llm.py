@@ -158,6 +158,11 @@ class AnthropicChatModel(ModelAPIProtocol):
                 f"Failed to get a response from the API after {max_attempts} attempts."
             )
 
+        if not response.content:
+            raise RuntimeError(
+                f"Got empty response from Anthropic. Prompt: {raw_prompt}, Response: {response}"
+            )
+
         num_context_tokens, num_completion_tokens = (
             response.usage.input_tokens,
             response.usage.output_tokens,

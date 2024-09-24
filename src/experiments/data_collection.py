@@ -250,8 +250,6 @@ def join_output(
             output[problem_id]["query_benign_u"] = []
             output[problem_id]["query_malicious_u"] = []
             output[problem_id]["query_trusted"] = []
-            output[problem_id]["trusted_decomposition_benign_u"] = []
-            output[problem_id]["trusted_decomposition_malicious_u"] = []
             output[problem_id]["untrusted_decomposition_benign_u"] = []
             output[problem_id]["untrusted_decomposition_malicious_u"] = []
 
@@ -1707,6 +1705,7 @@ def get_pipeline(
     name=None,
     use_cache=True,
     num_problems=None,
+    skip_problems=None,
     enable_decomposition=True,
     problem_ids=None,
 ):
@@ -1731,7 +1730,10 @@ def get_pipeline(
     load_data = pipeline.add_load_data_step(
         "load_data",
         load_problem_subset(
-            "INTERVIEW", require_solutions=True, problem_ids=problem_ids
+            "INTERVIEW",
+            require_solutions=True,
+            problem_ids=problem_ids,
+            skip_problems=skip_problems,
         ),
         TEST_DIR,
     )

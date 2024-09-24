@@ -620,7 +620,9 @@ def extract_suspiciousness(key_suffix=None):
         response = response.copy()
         gen = response["response"]["completion"]
         try:
-            response[f"suspiciousness{key_suffix}"] = int(gen.strip())
+            # remove wrapping asterisks
+            gen = gen.strip().strip("*")
+            response[f"suspiciousness{key_suffix}"] = int(gen)
             return response
         except Exception as e:
             logger.info(

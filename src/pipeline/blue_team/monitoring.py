@@ -337,6 +337,7 @@ def add_basic_scalar_blue_team_monitor_to_pipeline(
         team=team,
         bon=bon,
         temperature=temperature,
+        max_tokens=2,
         use_cache=use_cache,
     )
 
