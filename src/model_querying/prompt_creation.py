@@ -1312,7 +1312,7 @@ def get_monitoring_prompt(solution, language):
     )
 
 
-def get_suspiciousness(key_suffix=None):
+def get_suspiciousness(key_suffix=None, use_non_refusal_prompt=True):
     key_suffix = format_key_suffix(key_suffix)
 
     def call(solution, language):
@@ -1322,7 +1322,9 @@ def get_suspiciousness(key_suffix=None):
         if solution_string is None:
             return Prompt.empty()
 
-        monitoring_chat = get_monitor_description(key_suffix)(solution, language)
+        monitoring_chat = get_monitor_description(
+            key_suffix=key_suffix, use_non_refusal_prompt=use_non_refusal_prompt
+        )(solution, language)
         monitoring_chat.text.append(
             {
                 "role": "assistant",
@@ -1333,7 +1335,7 @@ def get_suspiciousness(key_suffix=None):
         base_prompt = BLUE_TEAM_PROMPTS["get_suspiciousness_score_only.txt"]
         monitoring_chat.text.append({"role": "user", "content": base_prompt})
 
-        monitoring_chat.logit_bias = {"1": -5, "3": -0.3, "7": -0.3, "I": -10}
+        # monitoring_chat.logit_bias = {"1": -5, "3": -0.3, "7": -0.3, "I": -10}
         return monitoring_chat
 
     return call

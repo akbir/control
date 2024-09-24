@@ -147,7 +147,7 @@ def check(input, actual, expected, custom_evaluator=None):
     return flag
 
 
-def run_solutions(solutions, num_threads=8):
+def run_solutions(solutions, num_threads=32):
     results = {}
     # skip already executed solutions
     filtered_solutions = []
@@ -172,7 +172,7 @@ def run_solutions(solutions, num_threads=8):
         for result in tqdm(async_results, disable=len(async_results) == 0):
             pred = "ERROR"
             try:
-                pred = result.result()
+                pred = result.result(timeout=2)
             except multiprocess.TimeoutError:
                 pred = "ERROR Execution time of the program exceeds 2 second, terminate execution."
             except Exception as e:
@@ -211,7 +211,7 @@ def run_solutions(solutions, num_threads=8):
         for result in tqdm(async_results, disable=len(async_results) == 0):
             flag = "[error] default pred"
             try:
-                flag = result.result()
+                flag = result.result(timeout=2)
             except multiprocess.TimeoutError:
                 flag = False
             except Exception as e:

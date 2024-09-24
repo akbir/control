@@ -136,9 +136,6 @@ def downselect_to_one_backdoor_per_subtask(data):
     return output
 
 
-# from pdb import set_trace
-
-
 def get_red_team_distribution(
     all_joined_subtasks,
 ):

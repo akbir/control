@@ -45,11 +45,25 @@ def load_problem_subset(subset, require_solutions=False, problem_ids=None):
             ):
                 continue
 
-            if require_solutions and not (problem_path / "solutions.json").exists():
-                logger.debug(
-                    f"Skipping problem {problem_dir} because it does not have solutions"
-                )
-                continue
+            if require_solutions:
+                if not (problem_path / "solutions.json").exists():
+                    logger.debug(
+                        f"Skipping problem {problem_dir} because solutions file does not exist"
+                    )
+                    continue
+
+                working_solutions = load_working_solutions_cached()
+                if not working_solutions:
+                    logger.error(
+                        f"No working solutions found. Have you run get_working_solutions in preprocess.py?"
+                    )
+                    raise Exception("No working solutions found.")
+
+                if working_solutions.get(problem_dir, None) is None:
+                    logger.debug(
+                        f"Skipping problem {problem_dir} because it does not have a working solution"
+                    )
+                    continue
 
             with (problem_path / "question.txt").open("r") as f:
                 problem["question"] = f.read()
@@ -167,6 +181,30 @@ def read_from_cache(name):
                 data[file.stem] = value
 
     return data, incoming_problem_ids
+
+
+_working_solutions_cache = None
+
+
+def load_working_solutions_cached():
+    global _working_solutions_cache
+    if _working_solutions_cache is None:
+        _working_solutions_cache = load_working_solutions()
+    return _working_solutions_cache
+
+
+def load_working_solutions(problem_ids=None):
+    with open(get_data_dir() / "working_solutions.json", "r") as f:
+        working_solutions = json.load(f)
+
+    if problem_ids:
+        return {problem_id: working_solutions[problem_id] for problem_id in problem_ids}
+
+    return working_solutions
+
+
+def get_working_solutions_for_problem(problem_id):
+    return load_working_solutions_cached().get(problem_id, None)
 
 
 def load_ground_truth_solutions(problem_ids):
