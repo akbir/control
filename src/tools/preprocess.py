@@ -167,4 +167,5 @@ def get_working_solutions(subset="INTERVIEW", num_problems=2000):
 
 if __name__ == "__main__":
     # preprocess()
-    sample()
+    # sample()
+    get_working_solutions()
