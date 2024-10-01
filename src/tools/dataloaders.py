@@ -32,12 +32,15 @@ def load_problem_subset(
     def load_problems(dir, num_problems=None):
         if problem_ids:
             problem_dirs = problem_ids
+            num_to_skip = 0
+            num_problems = len(problem_ids)
         else:
             problem_dirs = os.listdir(dir)
+            num_to_skip = skip_problems
         problems = {}
         added = 0
         skipped = 0
-        logger.info(f"Skipping the first {skip_problems} problems.")
+        logger.info(f"Skipping the first {num_to_skip} problems.")
         for problem_dir in problem_dirs:
             problem_path = dir / problem_dir
             problem = {}
@@ -72,12 +75,12 @@ def load_problem_subset(
             with (problem_path / "question.txt").open("r") as f:
                 problem["question"] = f.read()
 
-            problem["uid"] = problem_dir
-            problems[problem_dir] = problem
-
-            if skipped < skip_problems:
+            if skipped < num_to_skip:
                 skipped += 1
                 continue
+
+            problem["uid"] = problem_dir
+            problems[problem_dir] = problem
 
             added += 1
             if added >= num_problems:

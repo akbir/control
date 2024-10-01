@@ -383,7 +383,10 @@ def extract_test_cases(response, language):
         parser = BeautifulSoup(gen, "html.parser")
         test_cases = []
         for test_input_tag in parser.find_all("test_input"):
-            test_cases.append(test_input_tag.text.strip())
+            test_input = test_input_tag.text.strip()
+            test_cases.append(
+                test_input[:100] if len(test_input) > 100 else test_input
+            )  # Limit to 100 characters if longer
 
         response["gen_test_cases"] = test_cases
         return response

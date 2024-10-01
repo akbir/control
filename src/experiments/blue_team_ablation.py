@@ -158,7 +158,7 @@ def get_pipeline(
     return pipeline, innocent_scores, backdoored_scores
 
 
-def get_auroc(innocent_scores, backdoored_scores, print=False):
+def get_auroc(innocent_scores, backdoored_scores, should_print=False):
     all_scores = np.concatenate([innocent_scores, backdoored_scores])
 
     labels = np.concatenate(
@@ -168,7 +168,7 @@ def get_auroc(innocent_scores, backdoored_scores, print=False):
     auroc = roc_auc_score(labels, all_scores)
 
     # Print statistics
-    if print:
+    if should_print:
         innocent_mean = np.mean(innocent_scores)
         innocent_std = np.std(innocent_scores)
         backdoored_mean = np.mean(backdoored_scores)
@@ -211,7 +211,7 @@ def plot_results(
     backdoored_mean = np.mean(backdoored_scores)
 
     auroc, false_positive_rate, true_positive_rate = get_auroc(
-        innocent_scores, backdoored_scores, print=True
+        innocent_scores, backdoored_scores, should_print=True
     )
 
     # Create histogram

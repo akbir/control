@@ -220,6 +220,9 @@ class ModelAPI:
                     n=num_candidates,
                     **kwargs,
                 )
+        else:
+            if len(responses) > n:
+                responses = responses[:n]
 
         modified_responses = []
         for response in responses:

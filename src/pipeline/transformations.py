@@ -591,7 +591,7 @@ def strip_comments(code_key, key_suffix):
     def func(data):
         output = {}
         for k, v in data.items():
-            if code_key not in v:
+            if not v.get(code_key):
                 continue
 
             v[f"no_comments_solution{key_suffix}"] = strip_comments_from_string(

@@ -154,6 +154,9 @@ class AnthropicChatModel(ModelAPIProtocol):
                 break
 
         if response is None:
+            LOGGER.error(
+                f"Failed to get a response from the API after {max_attempts} attempts. Prompt: {raw_prompt}, Response: {response}"
+            )
             raise RuntimeError(
                 f"Failed to get a response from the API after {max_attempts} attempts."
             )

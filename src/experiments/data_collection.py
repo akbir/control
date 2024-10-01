@@ -235,9 +235,17 @@ def join_output(
     untrusted_decomposition_malicious_edited_results=None,
     untrusted_decomposition_malicious_rewritten_results=None,
 ):
+    def sort_func(x):
+        problem_id = x[0]
+        if "-" not in problem_id:
+            return int(problem_id)
+        else:
+            return int(problem_id.split("-")[-1])
+
     # initialize output with query_benign data
     output = {}
-    for key, value in query_benign_results.items():
+    sorted_query_benign_results = sorted(query_benign_results.items(), key=sort_func)
+    for key, value in sorted_query_benign_results:
         problem_id = value["problem_id"]
 
         if problem_id not in output:
@@ -258,10 +266,14 @@ def join_output(
             for k, v in value.items()
             if k not in ("problem_id", "problem") and v is not None
         }
+        subproblem_data["solution_id"] = key
         output[problem_id]["query_benign_u"].append(subproblem_data)
 
+    sorted_query_benign_rewrite_results = sorted(
+        query_benign_rewrite_results.items(), key=sort_func
+    )
     # add trusted edit data to benign solutions
-    for key, value in query_benign_rewrite_results.items():
+    for key, value in sorted_query_benign_rewrite_results:
         problem_id, index, _ = key.split("-")
 
         parent_data = output[problem_id]["query_benign_u"][int(index)]
@@ -273,10 +285,14 @@ def join_output(
             for k, v in value.items()
             if k not in ("problem_id", "problem") and v is not None
         }
+        subproblem_data["solution_id"] = key
         parent_data["edited_solutions"].append(subproblem_data)
 
     # add query_malicious data
-    for key, value in query_malicious_results.items():
+    sorted_query_malicious_results = sorted(
+        query_malicious_results.items(), key=sort_func
+    )
+    for key, value in sorted_query_malicious_results:
         problem_id = value["problem_id"]
         parent_data = output[problem_id]
         subproblem_data = {
@@ -284,10 +300,14 @@ def join_output(
             for k, v in value.items()
             if k not in ("problem_id", "problem") and v is not None
         }
+        subproblem_data["solution_id"] = key
         output[problem_id]["query_malicious_u"].append(subproblem_data)
 
     # add trusted edit data to malicious solutions
-    for key, value in query_malicious_rewrite_results.items():
+    sorted_query_malicious_rewrite_results = sorted(
+        query_malicious_rewrite_results.items(), key=sort_func
+    )
+    for key, value in sorted_query_malicious_rewrite_results:
         problem_id, index, _ = key.split("-")
 
         parent_data = output[problem_id]["query_malicious_u"][int(index)]
@@ -299,10 +319,12 @@ def join_output(
             for k, v in value.items()
             if k not in ("problem_id", "problem") and v is not None
         }
+        subproblem_data["solution_id"] = key
         parent_data["edited_solutions"].append(subproblem_data)
 
     # add query trusted results
-    for key, value in query_trusted_results.items():
+    sorted_query_trusted_results = sorted(query_trusted_results.items(), key=sort_func)
+    for key, value in sorted_query_trusted_results:
         problem_id = value["problem_id"]
         parent_data = output[problem_id]
         subproblem_data = {
@@ -310,11 +332,15 @@ def join_output(
             for k, v in value.items()
             if k not in ("problem_id", "problem") and v is not None
         }
+        subproblem_data["solution_id"] = key
         output[problem_id]["query_trusted"].append(subproblem_data)
 
     if untrusted_decomposition_benign_results:
         # add untrusted decomposition benign data
-        for key, value in untrusted_decomposition_benign_results.items():
+        sorted_untrusted_decomposition_benign_results = sorted(
+            untrusted_decomposition_benign_results.items(), key=sort_func
+        )
+        for key, value in sorted_untrusted_decomposition_benign_results:
             problem_id = value["problem_id"]
             parent_data = output[problem_id]
             subproblem_data = {
@@ -322,12 +348,16 @@ def join_output(
                 for k, v in value.items()
                 if k not in ("problem_id", "problem") and v is not None
             }
+            subproblem_data["solution_id"] = key
             output[problem_id]["untrusted_decomposition_benign_u"].append(
                 subproblem_data
             )
 
     if untrusted_decomposition_benign_edited_results:
-        for key, value in untrusted_decomposition_benign_edited_results.items():
+        sorted_untrusted_decomposition_benign_edited_results = sorted(
+            untrusted_decomposition_benign_edited_results.items(), key=sort_func
+        )
+        for key, value in sorted_untrusted_decomposition_benign_edited_results:
             problem_id, index = key.split("-")
 
             parent_data = output[problem_id]["untrusted_decomposition_benign_u"][
@@ -341,10 +371,14 @@ def join_output(
                 for k, v in value.items()
                 if k not in ("problem_id", "problem") and v is not None
             }
+            subproblem_data["solution_id"] = key
             parent_data["edited_solutions"].append(subproblem_data)
 
     if untrusted_decomposition_benign_rewritten_results:
-        for key, value in untrusted_decomposition_benign_rewritten_results.items():
+        sorted_untrusted_decomposition_benign_rewritten_results = sorted(
+            untrusted_decomposition_benign_rewritten_results.items(), key=sort_func
+        )
+        for key, value in sorted_untrusted_decomposition_benign_rewritten_results:
             problem_id, index = key.split("-")
 
             parent_data = output[problem_id]["untrusted_decomposition_benign_u"][
@@ -358,11 +392,15 @@ def join_output(
                 for k, v in value.items()
                 if k not in ("problem_id", "problem") and v is not None
             }
+            subproblem_data["solution_id"] = key
             parent_data["rewritten_solutions"].append(subproblem_data)
 
     if untrusted_decomposition_malicious_results:
         # add untrusted decomposition malicious data
-        for key, value in untrusted_decomposition_malicious_results.items():
+        sorted_untrusted_decomposition_malicious_results = sorted(
+            untrusted_decomposition_malicious_results.items(), key=sort_func
+        )
+        for key, value in sorted_untrusted_decomposition_malicious_results:
             problem_id = value["problem_id"]
             parent_data = output[problem_id]
             subproblem_data = {
@@ -370,12 +408,16 @@ def join_output(
                 for k, v in value.items()
                 if k not in ("problem_id", "problem") and v is not None
             }
+            subproblem_data["solution_id"] = key
             output[problem_id]["untrusted_decomposition_malicious_u"].append(
                 subproblem_data
             )
 
     if untrusted_decomposition_malicious_edited_results:
-        for key, value in untrusted_decomposition_malicious_edited_results.items():
+        sorted_untrusted_decomposition_malicious_edited_results = sorted(
+            untrusted_decomposition_malicious_edited_results.items(), key=sort_func
+        )
+        for key, value in sorted_untrusted_decomposition_malicious_edited_results:
             problem_id, index = key.split("-")
 
             parent_data = output[problem_id]["untrusted_decomposition_malicious_u"][
@@ -389,10 +431,14 @@ def join_output(
                 for k, v in value.items()
                 if k not in ("problem_id", "problem") and v is not None
             }
+            subproblem_data["solution_id"] = key
             parent_data["edited_solutions"].append(subproblem_data)
 
     if untrusted_decomposition_malicious_rewritten_results:
-        for key, value in untrusted_decomposition_malicious_rewritten_results.items():
+        sorted_untrusted_decomposition_malicious_rewritten_results = sorted(
+            untrusted_decomposition_malicious_rewritten_results.items(), key=sort_func
+        )
+        for key, value in sorted_untrusted_decomposition_malicious_rewritten_results:
             problem_id, index = key.split("-")
 
             parent_data = output[problem_id]["untrusted_decomposition_malicious_u"][
@@ -406,12 +452,13 @@ def join_output(
                 for k, v in value.items()
                 if k not in ("problem_id", "problem") and v is not None
             }
+            subproblem_data["solution_id"] = key
             parent_data["rewritten_solutions"].append(subproblem_data)
 
     return output
 
 
-def query_benign_pipeline(pipeline, load_data, strong_model, weak_model):
+def query_benign_pipeline(pipeline, load_data, strong_model, weak_model, monitor_bon):
     query_benign_untrusted_get_solutions = pipeline.add_query_step(
         "query_benign_untrusted_get_solutions",
         strong_model,
@@ -433,7 +480,7 @@ def query_benign_pipeline(pipeline, load_data, strong_model, weak_model):
                 name="query_benign",
                 team_suffix="query_benign",
                 use_non_refusal_prompt=False,
-                bon=64,
+                bon=monitor_bon,
                 temperature=1.0,
             )
         )
@@ -469,7 +516,11 @@ def query_benign_pipeline(pipeline, load_data, strong_model, weak_model):
 
 
 def query_malicious_pipeline(
-    pipeline, query_benign_untrusted_get_solutions, strong_model, weak_model
+    pipeline,
+    query_benign_untrusted_get_solutions,
+    strong_model,
+    weak_model,
+    monitor_bon,
 ):
     query_malicious_get_backdoors = add_backdoor_steps_to_pipeline(
         pipeline,
@@ -522,7 +573,7 @@ def query_malicious_pipeline(
                 name="query_malicious",
                 team_suffix="query_malicious",
                 use_non_refusal_prompt=False,
-                bon=64,
+                bon=monitor_bon,
                 temperature=1.0,
             )
         )
@@ -562,7 +613,7 @@ def query_malicious_pipeline(
     return query_malicious_flatten_backdoors, query_malicious_results
 
 
-def query_trusted_pipeline(pipeline, load_data, strong_model, weak_model):
+def query_trusted_pipeline(pipeline, load_data, strong_model, weak_model, monitor_bon):
     query_trusted_solutions = pipeline.add_query_step(
         "query_trusted_solutions",
         weak_model,
@@ -582,7 +633,7 @@ def query_trusted_pipeline(pipeline, load_data, strong_model, weak_model):
             name="query_trusted",
             team_suffix="query_trusted",
             use_non_refusal_prompt=False,
-            bon=64,
+            bon=monitor_bon,
             temperature=1.0,
         )
     else:
@@ -597,7 +648,7 @@ def query_trusted_pipeline(pipeline, load_data, strong_model, weak_model):
 
     query_trusted_usefulness = pipeline.add_code_evaluation_step(
         "query_trusted_usefulness",
-        strong_model,
+        weak_model,
         run_solutions,
         dependencies=[query_trusted_solutions],
     )
@@ -633,7 +684,11 @@ def get_problem_difficulty(pipeline, query_trusted_solutions, strong_model, weak
 
 
 def query_benign_edited_pipeline(
-    pipeline, query_benign_untrusted_get_solutions, strong_model, weak_model
+    pipeline,
+    query_benign_untrusted_get_solutions,
+    strong_model,
+    weak_model,
+    monitor_bon,
 ):
     query_benign_rewrite = pipeline.add_query_step(
         "query_benign_rewrite",
@@ -656,7 +711,7 @@ def query_benign_edited_pipeline(
                 name="query_benign_rewrite",
                 team_suffix="query_benign_rewrite",
                 use_non_refusal_prompt=False,
-                bon=64,
+                bon=monitor_bon,
                 temperature=1.0,
             )
         )
@@ -692,7 +747,7 @@ def query_benign_edited_pipeline(
 
 
 def query_malicious_edited_pipeline(
-    pipeline, query_malicious_flatten_backdoors, strong_model, weak_model
+    pipeline, query_malicious_flatten_backdoors, strong_model, weak_model, monitor_bon
 ):
     query_malicious_rewrite = pipeline.add_query_step(
         "query_malicious_rewrite",
@@ -729,7 +784,7 @@ def query_malicious_edited_pipeline(
                 name="query_malicious_rewrite",
                 team_suffix="query_malicious_rewrite",
                 use_non_refusal_prompt=False,
-                bon=64,
+                bon=monitor_bon,
                 temperature=1.0,
             )
         )
@@ -775,6 +830,7 @@ def query_malicious_edited_pipeline(
         use_modified_solution=False,
         suffix="query_malicious_rewrite",
         team_suffix="query_malicious_rewrite",
+        is_after_edit=True,
     )
 
     query_malicious_rewrite_rejoin_rewritten_exploit_attempts = (
@@ -825,7 +881,11 @@ def update_fields_for_decomposition(data):
 
 
 def untrusted_decomposition_benign_pipeline(
-    pipeline, query_benign_untrusted_get_solutions, strong_model, weak_model
+    pipeline,
+    query_benign_untrusted_get_solutions,
+    strong_model,
+    weak_model,
+    monitor_bon,
 ):
     untrusted_decomposition_benign_downselect_problems = (
         pipeline.add_transformation_step(
@@ -877,7 +937,7 @@ def untrusted_decomposition_benign_pipeline(
                 name=f"untrusted_decomposition_benign_unedited_plan",
                 team_suffix="untrusted_decomposition_benign",
                 use_non_refusal_prompt=False,
-                bon=64,
+                bon=monitor_bon,
                 temperature=1.0,
             )
         )
@@ -947,7 +1007,7 @@ def untrusted_decomposition_benign_pipeline(
                 name=f"untrusted_decomposition_benign_subtask",
                 team_suffix="untrusted_decomposition_benign",
                 use_non_refusal_prompt=False,
-                bon=64,
+                bon=monitor_bon,
                 temperature=1.0,
             )
         )
@@ -1011,7 +1071,7 @@ def untrusted_decomposition_benign_pipeline(
                 name=f"untrusted_decomposition_benign_edited",
                 team_suffix="untrusted_decomposition_benign",
                 use_non_refusal_prompt=False,
-                bon=64,
+                bon=monitor_bon,
                 temperature=1.0,
             )
         )
@@ -1089,7 +1149,7 @@ def untrusted_decomposition_benign_pipeline(
                 name=f"untrusted_decomposition_benign_rewritten",
                 team_suffix="untrusted_decomposition_benign",
                 use_non_refusal_prompt=False,
-                bon=64,
+                bon=monitor_bon,
                 temperature=1.0,
             )
         )
@@ -1134,7 +1194,7 @@ def untrusted_decomposition_benign_pipeline(
 
 
 def untrusted_decomposition_malicious_pipeline(
-    pipeline, query_malicious_flatten_backdoors, strong_model, weak_model
+    pipeline, query_malicious_flatten_backdoors, strong_model, weak_model, monitor_bon
 ):
     untrusted_decomposition_malicious_downselect_problems = (
         pipeline.add_transformation_step(
@@ -1230,7 +1290,7 @@ def untrusted_decomposition_malicious_pipeline(
                 name=f"untrusted_decomposition_malicious_unedited_plan",
                 team_suffix="untrusted_decomposition_malicious",
                 use_non_refusal_prompt=False,
-                bon=64,
+                bon=monitor_bon,
                 temperature=1.0,
             )
         )
@@ -1265,6 +1325,7 @@ def untrusted_decomposition_malicious_pipeline(
         use_modified_solution=False,
         suffix="untrusted_decomposition_malicious_unedited",
         team_suffix="untrusted_decomposition_malicious",
+        is_after_edit=True,
     )
 
     untrusted_decomposition_malicious_rejoin_unedited_exploit_attempts = (
@@ -1356,7 +1417,7 @@ def untrusted_decomposition_malicious_pipeline(
                 name=f"untrusted_decomposition_malicious_subtask",
                 team_suffix="untrusted_decomposition_malicious",
                 use_non_refusal_prompt=False,
-                bon=64,
+                bon=monitor_bon,
                 temperature=1.0,
             )
         )
@@ -1438,7 +1499,7 @@ def untrusted_decomposition_malicious_pipeline(
                 name=f"untrusted_decomposition_malicious_edited",
                 team_suffix="untrusted_decomposition_malicious",
                 use_non_refusal_prompt=False,
-                bon=64,
+                bon=monitor_bon,
                 temperature=1.0,
             )
         )
@@ -1471,6 +1532,7 @@ def untrusted_decomposition_malicious_pipeline(
         use_modified_solution=False,
         suffix="untrusted_decomposition_malicious_edited",
         team_suffix="untrusted_decomposition_malicious",
+        is_after_edit=True,
     )
 
     untrusted_decomposition_malicious_rejoin_edited_exploit_attempts = (
@@ -1481,6 +1543,8 @@ def untrusted_decomposition_malicious_pipeline(
                 untrusted_decomposition_malicious_edited_plan_improved_solution,
                 untrusted_decomposition_malicious_edited_plan_retry_exploit,
             ],
+            strong_model=strong_model,
+            weak_model=weak_model,
         )
     )
 
@@ -1593,7 +1657,7 @@ def untrusted_decomposition_malicious_pipeline(
                 name=f"untrusted_decomposition_malicious_rewritten",
                 team_suffix="untrusted_decomposition_malicious",
                 use_non_refusal_prompt=False,
-                bon=64,
+                bon=monitor_bon,
                 temperature=1.0,
             )
         )
@@ -1628,6 +1692,7 @@ def untrusted_decomposition_malicious_pipeline(
         use_modified_solution=False,
         suffix="untrusted_decomposition_malicious_rewritten",
         team_suffix="untrusted_decomposition_malicious",
+        is_after_edit=True,
     )
 
     untrusted_decomposition_malicious_rejoin_rewritten_exploit_attempts = (
@@ -1708,6 +1773,7 @@ def get_pipeline(
     skip_problems=None,
     enable_decomposition=True,
     problem_ids=None,
+    monitor_bon=64,
 ):
     ROOT_DIR = get_root_directory()
     DATA_DIR = ROOT_DIR / "data" / "APPS"
@@ -1739,25 +1805,37 @@ def get_pipeline(
     )
 
     query_benign_untrusted_get_solutions, query_benign_results = query_benign_pipeline(
-        pipeline, load_data, strong_model, weak_model
+        pipeline, load_data, strong_model, weak_model, monitor_bon
     )
     (
         query_malicious_flatten_backdoors,
         query_malicious_results,
     ) = query_malicious_pipeline(
-        pipeline, query_benign_untrusted_get_solutions, strong_model, weak_model
+        pipeline,
+        query_benign_untrusted_get_solutions,
+        strong_model,
+        weak_model,
+        monitor_bon,
     )
     query_trusted_solutions, query_trusted_results = query_trusted_pipeline(
-        pipeline, load_data, strong_model, weak_model
+        pipeline, load_data, strong_model, weak_model, monitor_bon
     )
     get_avg_difficulty_results = get_problem_difficulty(
         pipeline, query_trusted_solutions, strong_model, weak_model
     )
     query_benign_rewrite_results = query_benign_edited_pipeline(
-        pipeline, query_benign_untrusted_get_solutions, strong_model, weak_model
+        pipeline,
+        query_benign_untrusted_get_solutions,
+        strong_model,
+        weak_model,
+        monitor_bon,
     )
     query_malicious_rewrite_results = query_malicious_edited_pipeline(
-        pipeline, query_malicious_flatten_backdoors, strong_model, weak_model
+        pipeline,
+        query_malicious_flatten_backdoors,
+        strong_model,
+        weak_model,
+        monitor_bon,
     )
 
     if enable_decomposition:
@@ -1766,14 +1844,22 @@ def get_pipeline(
             untrusted_decomp_benign_edited_results,
             untrusted_decomp_benign_rewritten_results,
         ) = untrusted_decomposition_benign_pipeline(
-            pipeline, query_benign_untrusted_get_solutions, strong_model, weak_model
+            pipeline,
+            query_benign_untrusted_get_solutions,
+            strong_model,
+            weak_model,
+            monitor_bon,
         )
         (
             untrusted_decomp_malicious_results,
             untrusted_decomp_malicious_edited_results,
             untrusted_decomp_malicious_rewritten_results,
         ) = untrusted_decomposition_malicious_pipeline(
-            pipeline, query_malicious_flatten_backdoors, strong_model, weak_model
+            pipeline,
+            query_malicious_flatten_backdoors,
+            strong_model,
+            weak_model,
+            monitor_bon,
         )
 
     ############################# Combine Results #############################

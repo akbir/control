@@ -146,7 +146,7 @@ def check(input, actual, expected, custom_evaluator=None):
     return flag
 
 
-def run_solutions(solutions, num_threads=32, batch_size=50):
+def run_solutions(solutions, num_threads=16, batch_size=50):
     results = {}
     # skip already executed solutions
     filtered_solutions = []
@@ -157,11 +157,13 @@ def run_solutions(solutions, num_threads=32, batch_size=50):
         else:
             filtered_solutions.append(solution)
     solutions = filtered_solutions
-    preds = []
-    for batch_start in tqdm(range(0, len(solutions), batch_size), leave=False):
-        batch_end = min(batch_start + batch_size, len(solutions))
-        batch_solutions = solutions[batch_start:batch_end]
-        with ProcessPool(num_threads) as p:
+
+    with ProcessPool(num_threads) as p:
+        preds = []
+        for batch_start in tqdm(range(0, len(solutions), batch_size)):
+            batch_end = min(batch_start + batch_size, len(solutions))
+            batch_solutions = solutions[batch_start:batch_end]
+
             # set timeout to 2 seconds
             async_results = []
             for solution in batch_solutions:
@@ -172,9 +174,7 @@ def run_solutions(solutions, num_threads=32, batch_size=50):
                         )
                     )
 
-            for result in tqdm(
-                async_results, disable=len(async_results) == 0, leave=False
-            ):
+            for result in tqdm(async_results, disable=len(async_results) == 0):
                 pred = "ERROR"
                 try:
                     pred = result.result(timeout=2)
@@ -187,8 +187,7 @@ def run_solutions(solutions, num_threads=32, batch_size=50):
                     pred = f"ERROR {error}"
                 preds.append(pred)
 
-    pred_idx = 0
-    with ProcessPool(num_threads) as p:
+        pred_idx = 0
         async_results = []
         for solution in solutions:
             cases = deepcopy(solution.test_cases)
@@ -215,7 +214,7 @@ def run_solutions(solutions, num_threads=32, batch_size=50):
                 pred_idx += 1
 
         flags = []
-        for result in tqdm(async_results, disable=len(async_results) == 0, leave=False):
+        for result in tqdm(async_results, disable=len(async_results) == 0):
             flag = "[error] default pred"
             try:
                 flag = result.result(timeout=2)

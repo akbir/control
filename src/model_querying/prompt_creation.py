@@ -2043,6 +2043,8 @@ def get_difficulty_problem_solution_execution(solution, language):
     base_prompt = base_prompt.replace("<SOLUTION>", solution["solution"])
     test_case_str = ""
     for test_case in solution["test_cases"]:
+        if len(test_case["input"]) > 100 or len(test_case["output"]) > 100:
+            continue
         test_case_str += f"Input: {test_case['input']}, Execution Output: {test_case['output']}, Predicted Correctness: {test_case['correct']}\n"
     base_prompt = base_prompt.replace("<UNIT_TESTS>", test_case_str)
     return Prompt(

@@ -208,7 +208,8 @@ class Pipeline:
                     f"{self.config.name}/{index:02d}-{name}/{strong_model}{'+' if strong_model and weak_model else ''}{weak_model}"
                 )
                 for problem_id in incoming_problem_ids:
-                    output[problem_id] = data[problem_id]
+                    if problem_id in data:
+                        output[problem_id] = data[problem_id]
                 if incoming_problem_ids.issubset(set(cached_problem_ids)):
                     return output
 
